@@ -11,8 +11,21 @@ type User struct {
 	Email     string        `bson:"email"`     // User mail. We do not need any more details
 	Threshold int           `bson:"threshold"` // Minimum score for an item to be sent
 	SentItems []int         `bson:"sentItems"` // Sent item ids
+	Token     string        `bson:"token"`     // User token
+	Active    bool          `bson:"active"`
 	CreatedAt time.Time     `bson:"createdAt"` // Registration time
 	// TODO: Add queue for unprocessed items (batch notifications)
+}
+
+func NewUser(email string, threshold int) *User {
+	return &User{
+		Id:        bson.NewObjectId(),
+		Email:     email,
+		Threshold: threshold,
+		Token:     newToken(),
+		Active:    false, // Email verification required
+		CreatedAt: time.Now(),
+	}
 }
 
 type Database struct {
@@ -71,6 +84,34 @@ func CreateDB() (*Database, error) {
 	//db.usersColl.UpsertId(u.Id, u)
 
 	return db, nil
+}
+
+func (db *Database) UpsertUser(u *User) (err error) {
+	_, err = db.usersColl.UpsertId(u.Id, u)
+	return
+}
+
+func (db *Database) Activate(uid, token string) bool {
+	if uid == "" || token == "" || !bson.IsObjectIdHex(uid) {
+		return false
+	}
+	u := &User{}
+	err := db.usersColl.Find(bson.M{"_id": bson.ObjectIdHex(uid)}).One(&u)
+	if err != nil {
+		Logger.Println("Error: verifyUser() - ", err)
+		return false
+	}
+
+	if token == u.Token {
+		u.Active = true
+		err := db.UpsertUser(u)
+		if err == nil {
+			return true
+		}
+		Logger.Println("Error: verifyUser() - ", err)
+	}
+
+	return false
 }
 
 func (db *Database) FindUsersForItem(item, score int) []User {

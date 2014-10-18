@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title>HN Notifications</title>
+        <link href="/style.css" rel="stylesheet"/>
+    </head>
+    <body>
+        <div class="content">
+            <h3 class="header">HN Notifications</h3>
+
+            <div>
+                <h4>Get an email as soon as a Hacker News story reaches your custom score threshold</h4>
+                <form action="/subscribe" method="POST">
+                    <div>
+                        <label for="inputUsername">Username</label>
+                        <input type="text" name="email" id="inputUsername" placeholder="Email address">
+                    </div>
+                    <div>
+                        <label for="inputThreshold">Password</label>
+                        <input type="text" name="threshold" id="inputThreshold" placeholder="Score threshold">
+                    </div>
+                    <button type="submit">Subscribe</button>
+                </form>
+            </div>
+        </div>
+    </body>
+</html>
