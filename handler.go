@@ -50,8 +50,8 @@ func SubscribeHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	u := NewUser(email, threshold)
-	if err := db.UpsertUser(u); err != nil {
+	u := newUser(email, threshold)
+	if err := db.upsertUser(u); err != nil {
 		if mgo.IsDup(err) {
 			writeMessage("This email account is already subscribed!", w)
 		} else {
@@ -82,7 +82,7 @@ func UnsubscribeHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		u, err := db.FindUser(email)
+		u, err := db.findUser(email)
 		if err != nil {
 			if err == mgo.ErrNotFound {
 				writeMessage("The email address you provided is not subscribed to this service!", w)
@@ -128,7 +128,7 @@ func UnsubscribeHandler(w http.ResponseWriter, r *http.Request) {
 
 func ActivateHandler(w http.ResponseWriter, r *http.Request) {
 	uid, t := r.FormValue("uid"), r.FormValue("t")
-	if db.Activate(uid, t) {
+	if db.activate(uid, t) {
 		writeMessage("Your account is now active!", w)
 	} else {
 		writeMessage("Error. The link is not valid", w)

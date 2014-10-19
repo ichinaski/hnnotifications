@@ -17,7 +17,7 @@ type User struct {
 	// TODO: Add queue for unprocessed items (batch notifications)
 }
 
-func NewUser(email string, threshold int) *User {
+func newUser(email string, threshold int) *User {
 	return &User{
 		Id:        bson.NewObjectId(),
 		Email:     email,
@@ -88,57 +88,55 @@ func setupDB() (*Database, error) {
 	return db, nil
 }
 
-func (db *Database) UpsertUser(u *User) (err error) {
+func (db *Database) upsertUser(u *User) (err error) {
 	_, err = db.usersColl.UpsertId(u.Id, u)
 	return
 }
 
-func (db *Database) Activate(uid, token string) bool {
+func (db *Database) validate(uid, token string) (*User, bool) {
 	if uid == "" || token == "" || !bson.IsObjectIdHex(uid) {
-		return false
+		return nil, false
 	}
 	var u User
 	err := db.usersColl.FindId(bson.ObjectIdHex(uid)).One(&u)
 	if err != nil {
-		Logger.Println("Error: verifyUser() - ", err)
+		Logger.Println("Error: validate() - ", err)
+		return nil, false
+	}
+
+	return &u, token == u.Token
+}
+
+func (db *Database) activate(uid, token string) bool {
+	u, ok := db.validate(uid, token)
+	if !ok {
 		return false
 	}
 
-	if token == u.Token {
-		u.Active = true
-		err := db.UpsertUser(&u)
-		if err == nil {
-			return true
-		}
-		Logger.Println("Error: verifyUser() - ", err)
+	u.Active = true
+	err := db.upsertUser(u)
+	if err == nil {
+		return true
 	}
-
+	Logger.Println("Error: activate() - ", err)
 	return false
 }
 
 func (db *Database) unsubscribe(uid, token string) bool {
-	if uid == "" || token == "" || !bson.IsObjectIdHex(uid) {
-		return false
-	}
-	var u User
-	err := db.usersColl.FindId(bson.ObjectIdHex(uid)).One(&u)
-	if err != nil {
-		Logger.Println("Error: unsubscribe() - ", err)
+	u, ok := db.validate(uid, token)
+	if !ok {
 		return false
 	}
 
-	if token == u.Token {
-		err := db.usersColl.RemoveId(u.Id)
-		if err == nil {
-			return true
-		}
-		Logger.Println("Error: unsubscribe() - ", err)
+	err := db.usersColl.RemoveId(u.Id)
+	if err == nil {
+		return true
 	}
-
+	Logger.Println("Error: unsubscribe() - ", err)
 	return false
 }
 
-func (db *Database) FindUsersForItem(item, score int) []User {
+func (db *Database) findUsersForItem(item, score int) []User {
 	var result []User
 	err := db.usersColl.Find(bson.M{"threshold": bson.M{"$lte": score}, "sentItems": bson.M{"$ne": item}, "active": true}).All(&result)
 	if err != nil {
@@ -149,7 +147,7 @@ func (db *Database) FindUsersForItem(item, score int) []User {
 }
 
 // UpdateSentItems adds the given item to the sentItems set in the user object
-func (db *Database) UpdateSentItems(uid bson.ObjectId, item int) error {
+func (db *Database) updateSentItems(uid bson.ObjectId, item int) error {
 	update := bson.M{
 		"$addToSet": bson.M{
 			"sentItems": item,
@@ -168,7 +166,7 @@ func (db *Database) updateToken(uid bson.ObjectId, token string) error {
 	return db.usersColl.UpdateId(uid, update)
 }
 
-func (db *Database) FindUser(email string) (*User, error) {
+func (db *Database) findUser(email string) (*User, error) {
 	var u User
 	err := db.usersColl.Find(bson.M{"email": email}).One(&u)
 	return &u, err

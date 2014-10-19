@@ -92,7 +92,7 @@ func run() {
 	}
 
 	for item := range merge(cs...) {
-		if users := db.FindUsersForItem(item.Id, item.Score); len(users) > 0 {
+		if users := db.findUsersForItem(item.Id, item.Score); len(users) > 0 {
 			// Create a slice with all the recipients for this item
 			emails := make([]string, len(users))
 			for i, u := range users {
@@ -108,7 +108,7 @@ func run() {
 
 			// Update each user's sentItem list. TODO: Use mgo's UpdateAll() function, updating all users at the same time
 			for _, u := range users {
-				if err := db.UpdateSentItems(u.Id, item.Id); err != nil {
+				if err := db.updateSentItems(u.Id, item.Id); err != nil {
 					Logger.Println(err)
 				}
 			}
