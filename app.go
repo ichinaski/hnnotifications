@@ -1,14 +1,12 @@
 package main
 
 import (
-	"github.com/gorilla/mux"
-	"labix.org/v2/mgo"
+	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
-	"net/url"
 	"os"
-	"strconv"
-	"text/template"
+	"sync"
 	"time"
 )
 
@@ -21,111 +19,174 @@ const (
 )
 
 var (
-	//hnUsername = "hnnotifications"
-	//hnPassword = "f(dY4Bx_9U"
-	//hnSmtpAddr = "smtp.gmail.com:587"
-	//hnEmail = "hnnotifications@gmail.com"
-
-	// TODO: Shitfuck use env vars instead!!
-	hnUsername = "inigo@ichinaski.com"
-	hnPassword = "8gvBue45"
-	hnSmtpHost = "smtp.zoho.com"
-	hnSmtpAddr = "smtp.zoho.com:587"
-	hnEmail    = "inigo@ichinaski.com"
-)
-
-var (
 	debug  = true
 	db     *Database
 	Logger = log.New(os.Stdout, "  ", log.LstdFlags|log.Lshortfile)
-	router *mux.Router
-)
-
-var (
-	templates = template.Must(template.ParseFiles(
-		"templates/info.html",
-		"templates/error.html",
-		"templates/item.html",
-		"templates/activate.html",
-	))
 )
 
 func main() {
 	var err error
-	db, err = CreateDB()
+	db, err = setupDB()
 	if err != nil {
 		Logger.Fatal(err)
 	}
 
-	initNotifier() // start the notification system
+	// set up a goroutine that will periodically call run()
+	go func() {
+		run()
+		ticker := time.NewTicker(runInterval)
+		for {
+			select {
+			case <-ticker.C:
+				run() // TODO: Consider executing run() in a separate goroutine
+			}
+		}
+	}()
 
-	// Set up handlers
-	router = mux.NewRouter()
-	router.HandleFunc("/subscribe", SubscribeHandler).
-		Methods("POST")
-	router.HandleFunc("/activate", ActivateHandler).
-		Methods("GET").
-		Name("activate")
-
-	router.PathPrefix("/").Handler(http.FileServer(http.Dir("./public/")))
-	http.Handle("/", router)
+	setupHandlers()
 	Logger.Println("Listening...")
 	http.ListenAndServe(":8080", nil)
 }
 
-// SubscribeHandler will handle new registrations through a POST method,
-// and email verification though a GET method and the user token
-func SubscribeHandler(w http.ResponseWriter, r *http.Request) {
-	email := r.FormValue("email")
-	threshold, err := strconv.Atoi(r.FormValue("threshold"))
+// Item represents a HN story
+type Item struct {
+	By    string
+	Id    int
+	Kids  []int64
+	Score int
+	Time  int64
+	Title string
+	Type  string
+	Url   string
+}
+
+// run fetches the top HN stories and sends notifications according to each user's score threshold
+func run() {
+	Logger.Println("run() - started...")
+	ids, err := getTopStories()
 	if err != nil {
-		writeError(w, err)
-		return
+		Logger.Println(err)
+		return // Just wait till the next cycle.
 	}
 
-	u := NewUser(email, threshold)
-	if err := db.UpsertUser(u); err != nil {
-		if mgo.IsDup(err) {
-			writeMessage("This email account is already subscribed!", w)
-		} else {
-			writeError(w, err)
+	// fetcher runs a goroutine to fetch the item. Once completed, the result
+	// will be inserted in the returned channel, and the channel closed.
+	fetchItem := func(id int) chan Item {
+		out := make(chan Item)
+		go func() {
+			item, err := getItem(id)
+			if err != nil {
+				Logger.Println(err)
+			} else {
+				out <- item
+			}
+			close(out)
+		}()
+		return out
+	}
+
+	// Fetch items concurrently. Each channel will only hold one item
+	cs := make([]chan Item, len(ids))
+	for i, id := range ids {
+		cs[i] = fetchItem(id)
+	}
+
+	for item := range merge(cs...) {
+		if users := db.FindUsersForItem(item.Id, item.Score); len(users) > 0 {
+			// Create a slice with all the recipients for this item
+			emails := make([]string, len(users))
+			for i, u := range users {
+				emails[i] = u.Email
+			}
+
+			// Send the email
+			if err := sendItem(item.Id, item.Title, item.Url, emails); err != nil {
+				Logger.Println("Error sending mail: ", err)
+				continue
+			}
+			Logger.Printf("Item %d sent to users: %v\n", item.Id, emails)
+
+			// Update each user's sentItem list. TODO: Use mgo's UpdateAll() function, updating all users at the same time
+			for _, u := range users {
+				if err := db.UpdateSentItems(u.Id, item.Id); err != nil {
+					Logger.Println(err)
+				}
+			}
 		}
+	}
+
+	Logger.Println("run() - finished")
+}
+
+// getTopStories reads the top stories IDs from the API
+func getTopStories() ([]int, error) {
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", topStoriesUrl, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Close = true
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	res := struct {
+		Items []int
+	}{}
+
+	err = json.NewDecoder(resp.Body).Decode(&res.Items)
+	return res.Items, err
+}
+
+// getItem reads the HN story item from the API
+func getItem(id int) (item Item, err error) {
+	url := fmt.Sprintf(itemUrl, id)
+	client := &http.Client{}
+	var req *http.Request
+	req, err = http.NewRequest("GET", url, nil)
+	if err != nil {
 		return
 	}
+	req.Close = true
 
-	href := "http://" + r.Host // TODO: Do not hard-code the scheme!
-	path, _ := router.Get("activate").URL()
-	q := url.Values{}
-	q.Set("uid", u.Id.Hex())
-	q.Set("t", u.Token)
-	href = href + path.String() + "?" + q.Encode()
-	go sendVerification(email, href)
+	var resp *http.Response
+	resp, err = client.Do(req)
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
 
-	writeMessage("An account verification email has been sent.", w)
+	err = json.NewDecoder(resp.Body).Decode(&item)
+	return item, nil
 }
 
-func ActivateHandler(w http.ResponseWriter, r *http.Request) {
-	uid, t := r.FormValue("uid"), r.FormValue("t")
-	if db.Activate(uid, t) {
-		writeMessage("Your account is now active!", w)
-	} else {
-		writeMessage("Error. The link is not valid", w)
-	}
-}
+// merge converts a list of channels to a single channel.
+// Based on the example in http://blog.golang.org/pipelines
+func merge(cs ...chan Item) <-chan Item {
+	var wg sync.WaitGroup
+	out := make(chan Item)
 
-func writeMessage(msg string, w http.ResponseWriter) {
-	if err := templates.ExecuteTemplate(w, "info.html", msg); err != nil {
-		writeError(w, err)
+	// Start an output goroutine for each input channel in cs. output
+	// copies values from c to out until c is closed, then calls wg.Done.
+	output := func(c <-chan Item) {
+		for n := range c {
+			out <- n
+		}
+		wg.Done()
 	}
-}
+	wg.Add(len(cs))
+	for _, c := range cs {
+		go output(c)
+	}
 
-// writeError renders the error in the HTTP response.
-func writeError(w http.ResponseWriter, err error) {
-	Logger.Println("Error: %v", err)
-	w.WriteHeader(http.StatusInternalServerError)
-	msg := "Oops! An error ocurred."
-	if debug {
-		msg = msg + " -  " + err.Error()
-	}
-	writeMessage(msg, w)
+	// Start a goroutine to close out once all the output goroutines are
+	// done. This must start after the wg.Add call.
+	go func() {
+		wg.Wait()
+		close(out)
+	}()
+	return out
 }

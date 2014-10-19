@@ -33,12 +33,14 @@ type Database struct {
 	usersColl *mgo.Collection
 }
 
-func CreateDB() (*Database, error) {
+func setupDB() (*Database, error) {
 	session, err := mgo.Dial("localhost")
 	if err != nil {
 		return nil, err
 	}
 	Logger.Println("Connected to MongoDB")
+
+	session.EnsureSafe(&mgo.Safe{})
 	// mgo.SetLogger(Logger)
 	// mgo.SetDebug(true)
 
@@ -65,7 +67,7 @@ func CreateDB() (*Database, error) {
 	}
 
 	if err := db.usersColl.EnsureIndex(mgo.Index{
-		Key: []string{"threshold", "sentItems"},
+		Key: []string{"threshold", "sentItems", "active"},
 	}); err != nil {
 		panic(err)
 	}
@@ -95,8 +97,8 @@ func (db *Database) Activate(uid, token string) bool {
 	if uid == "" || token == "" || !bson.IsObjectIdHex(uid) {
 		return false
 	}
-	u := &User{}
-	err := db.usersColl.Find(bson.M{"_id": bson.ObjectIdHex(uid)}).One(&u)
+	var u User
+	err := db.usersColl.FindId(bson.ObjectIdHex(uid)).One(&u)
 	if err != nil {
 		Logger.Println("Error: verifyUser() - ", err)
 		return false
@@ -104,7 +106,7 @@ func (db *Database) Activate(uid, token string) bool {
 
 	if token == u.Token {
 		u.Active = true
-		err := db.UpsertUser(u)
+		err := db.UpsertUser(&u)
 		if err == nil {
 			return true
 		}
@@ -114,9 +116,31 @@ func (db *Database) Activate(uid, token string) bool {
 	return false
 }
 
+func (db *Database) unsubscribe(uid, token string) bool {
+	if uid == "" || token == "" || !bson.IsObjectIdHex(uid) {
+		return false
+	}
+	var u User
+	err := db.usersColl.FindId(bson.ObjectIdHex(uid)).One(&u)
+	if err != nil {
+		Logger.Println("Error: unsubscribe() - ", err)
+		return false
+	}
+
+	if token == u.Token {
+		err := db.usersColl.RemoveId(u.Id)
+		if err == nil {
+			return true
+		}
+		Logger.Println("Error: unsubscribe() - ", err)
+	}
+
+	return false
+}
+
 func (db *Database) FindUsersForItem(item, score int) []User {
 	var result []User
-	err := db.usersColl.Find(bson.M{"threshold": bson.M{"$lte": score}, "sentItems": bson.M{"$ne": item}}).All(&result)
+	err := db.usersColl.Find(bson.M{"threshold": bson.M{"$lte": score}, "sentItems": bson.M{"$ne": item}, "active": true}).All(&result)
 	if err != nil {
 		Logger.Println(err)
 	}
@@ -133,4 +157,19 @@ func (db *Database) UpdateSentItems(uid bson.ObjectId, item int) error {
 	}
 
 	return db.usersColl.UpdateId(uid, update)
+}
+
+func (db *Database) updateToken(uid bson.ObjectId, token string) error {
+	update := bson.M{
+		"$set": bson.M{
+			"token": token,
+		},
+	}
+	return db.usersColl.UpdateId(uid, update)
+}
+
+func (db *Database) FindUser(email string) (*User, error) {
+	var u User
+	err := db.usersColl.Find(bson.M{"email": email}).One(&u)
+	return &u, err
 }

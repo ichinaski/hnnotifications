@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title>HN Notifications</title>
+        <link href="/style.css" rel="stylesheet"/>
+    </head>
+    <body>
+        <div class="content">
+            <h3 class="header">HN Notifications</h3>
+
+            <div>
+                <h4>In order to unsubscribe, enter your email address in the form below, and click in the link that will be sent to your email account</h4>
+                <form action="/unsubscribe" method="POST">
+                    <div>
+                        <label for="email">Email</label>
+                        <input type="text" name="email" id="email" placeholder="Email address">
+                    </div>
+                    <button type="submit">Unsubscribe</button>
+                </form>
+            </div>
+        </div>
+    </body>
+</html>
+

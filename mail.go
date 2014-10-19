@@ -3,8 +3,22 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"net/mail"
+	"github.com/jordan-wright/email"
 	"net/smtp"
+)
+
+const (
+	//hnUsername = "hnnotifications"
+	//hnPassword = "f(dY4Bx_9U"
+	//hnSmtpAddr = "smtp.gmail.com:587"
+	//hnEmail = "hnnotifications@gmail.com"
+
+	// TODO: Shitfuck use env vars instead!!
+	hnUsername = "inigo@ichinaski.com"
+	hnPassword = "8gvBue45"
+	hnSmtpHost = "smtp.zoho.com"
+	hnSmtpAddr = "smtp.zoho.com:587"
+	hnEmail    = "HN Notifications <inigo@ichinaski.com>"
 )
 
 func auth() smtp.Auth {
@@ -12,48 +26,59 @@ func auth() smtp.Auth {
 	return smtp.PlainAuth("", hnUsername, hnPassword, hnSmtpHost)
 }
 
-func loadEmail(templ string, data interface{}) string {
+func loadEmail(templ string, data interface{}) ([]byte, error) {
 	var doc bytes.Buffer
-	if err := templates.ExecuteTemplate(&doc, templ, data); err != nil {
-		Logger.Println("templates.ExecuteTemplate: %v", err)
-	}
-	return doc.String()
+	err := templates.ExecuteTemplate(&doc, templ, data)
+	return doc.Bytes(), err
 }
 
 // sendVerification delivers an email with the account verification link
-func sendVerification(email, url string) error {
-	title := "HN Notifications - Email verification needed"
-	message := loadEmail("activate.html", map[string]string{"url": url})
-	return sendMail(email, title, message)
+func sendVerification(to, link string) error {
+	subject := "HN Notifications - Email verification needed"
+	message, err := loadEmail("activate_email.html", map[string]string{"link": link})
+	if err != nil {
+		return err
+	}
+
+	e := email.NewEmail()
+	e.From = hnEmail
+	e.To = []string{to}
+	e.Subject = subject
+	e.HTML = message
+	return e.Send(hnSmtpAddr, auth())
 }
 
-func sendItem(id int, title, url, email string) error {
+// sendUnsubscription delivers an email with the unsubscription link
+func sendUnsubscription(to, link string) error {
+	subject := "HN Notifications - Unsubscribe"
+	message, err := loadEmail("unsubscribe_email.html", map[string]string{"link": link})
+	if err != nil {
+		return err
+	}
+
+	e := email.NewEmail()
+	e.From = hnEmail
+	e.To = []string{to}
+	e.Subject = subject
+	e.HTML = message
+	return e.Send(hnSmtpAddr, auth())
+}
+
+func sendItem(id int, title, url string, bcc []string) error {
 	data := map[string]string{
 		"title":      title,
 		"link":       url,
 		"discussion": fmt.Sprintf(commentsUrl, id),
 	}
-	message := loadEmail("item.html", data)
-
-	return sendMail(email, title, message)
-}
-
-func sendMail(email, title, message string) error {
-	from := mail.Address{"HN Notifications", hnEmail}
-	headers := make(map[string]string)
-	headers["From"] = from.String()
-	headers["To"] = email
-	headers["Subject"] = title
-	headers["MIME-Version"] = "1.0"
-	headers["Content-Type"] = "text/html; charset=\"utf-8\""
-
-	body := ""
-	for k, v := range headers {
-		body += fmt.Sprintf("%s: %s\n", k, v)
+	message, err := loadEmail("item_email.html", data)
+	if err != nil {
+		return err
 	}
-	body += "\n" + message
 
-	// Connect to the server, authenticate, set the sender and recipient,
-	// and send the email all in one step.
-	return smtp.SendMail(hnSmtpAddr, auth(), hnEmail, []string{email}, []byte(body))
+	e := email.NewEmail()
+	e.From = hnEmail
+	e.Bcc = bcc
+	e.Subject = title
+	e.HTML = message
+	return e.Send(hnSmtpAddr, auth())
 }
