@@ -44,7 +44,7 @@ func main() {
 
 	setupHandlers()
 	Logger.Println("Listening...")
-	http.ListenAndServe(":8080", nil)
+	http.ListenAndServe(":3000", nil)
 }
 
 // Item represents a HN story
