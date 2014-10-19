@@ -6,17 +6,17 @@
     </head>
     <body>
         <div class="content">
-            <h3 class="header">HN Notifications</h3>
+            <h3 class="header"><a href="/">HN Notifications</a></h3>
 
             <div>
-                <h4>Get an email as soon as a Hacker News story reaches your custom score threshold</h4>
+                <h5>Get an email as soon as a Hacker News story reaches your custom score threshold</h5>
                 <form action="/subscribe" method="POST">
                     <div>
-                        <label for="inputUsername">Username</label>
-                        <input type="text" name="email" id="inputUsername" placeholder="Email address">
+                        <label for="email">Email</label>
+                        <input type="text" name="email" id="email" placeholder="Email address">
                     </div>
                     <div>
-                        <label for="inputThreshold">Password</label>
+                        <label for="inputThreshold">Threshold</label>
                         <input type="text" name="threshold" id="inputThreshold" placeholder="Score threshold">
                     </div>
                     <button type="submit">Subscribe</button>

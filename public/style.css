@@ -8,4 +8,5 @@ a:visited { color:#828282; text-decoration:none; }
 
 .content {width:80em; margin:0em auto 10em; background:#f6f6ef; }
 .header { padding:0.5em; background:#ff6600; }
+.header a { color:#000; }
 .content div { padding:0em 0.5em 0.5em 0.5em; }

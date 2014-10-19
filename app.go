@@ -13,7 +13,6 @@ import (
 const (
 	topStoriesUrl = "https://hacker-news.firebaseio.com/v0/topstories.json"
 	itemUrl       = "https://hacker-news.firebaseio.com/v0/item/%d.json"
-	commentsUrl   = "https://news.ycombinator.com/item?id=%d"
 
 	runInterval = 15 * time.Minute // Interval at which we fetch the items
 )

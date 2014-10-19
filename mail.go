@@ -8,6 +8,11 @@ import (
 )
 
 const (
+	commentsUrl    = "https://news.ycombinator.com/item?id=%d"
+	unsubscribeUrl = host + "/unsubscribe"
+)
+
+const (
 	//hnUsername = "hnnotifications"
 	//hnPassword = "f(dY4Bx_9U"
 	//hnSmtpAddr = "smtp.gmail.com:587"
@@ -66,9 +71,10 @@ func sendUnsubscription(to, link string) error {
 
 func sendItem(id int, title, url string, bcc []string) error {
 	data := map[string]string{
-		"title":      title,
-		"link":       url,
-		"discussion": fmt.Sprintf(commentsUrl, id),
+		"title":       title,
+		"link":        url,
+		"discussion":  fmt.Sprintf(commentsUrl, id),
+		"unsubscribe": unsubscribeUrl,
 	}
 	message, err := loadEmail("item_email.html", data)
 	if err != nil {

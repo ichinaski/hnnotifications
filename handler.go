@@ -10,8 +10,12 @@ import (
 	"text/template"
 )
 
+const (
+	host = "http://localhost:8080" // TODO: Don't hard-code the scheme
+)
+
 var (
-	errINvalidLink = errors.New("Error: The link is not valid")
+	errInvalidLink = errors.New("Error: The link is not valid.")
 
 	router *mux.Router
 
@@ -60,12 +64,11 @@ func SubscribeHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	href := "http://" + r.Host // TODO: Do not hard-code the scheme!
 	path, _ := router.Get("activate").URL()
 	q := url.Values{}
 	q.Set("uid", u.Id.Hex())
 	q.Set("t", u.Token)
-	href = href + path.String() + "?" + q.Encode()
+	href := host + path.String() + "?" + q.Encode()
 	go sendVerification(email, href)
 
 	writeMessage("An account verification email has been sent.", w)
@@ -116,7 +119,7 @@ func UnsubscribeHandler(w http.ResponseWriter, r *http.Request) {
 			if db.unsubscribe(uid, t) {
 				writeMessage("You have been successfully unsubscribed.", w)
 			} else {
-				writeError(errINvalidLink, w)
+				writeError(errInvalidLink, w)
 			}
 		} else {
 			if err := templates.ExecuteTemplate(w, "unsubscribe.html", nil); err != nil {
@@ -131,7 +134,7 @@ func ActivateHandler(w http.ResponseWriter, r *http.Request) {
 	if db.activate(uid, t) {
 		writeMessage("Your account is now active!", w)
 	} else {
-		writeMessage("Error. The link is not valid", w)
+		writeError(errInvalidLink, w)
 	}
 }
 
