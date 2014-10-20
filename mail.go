@@ -38,11 +38,12 @@ func loadEmail(templ string, data interface{}) ([]byte, error) {
 }
 
 // sendVerification delivers an email with the account verification link
-func sendVerification(to, link string) error {
+func sendVerification(to, link string) {
 	subject := "HN Notifications - Email verification needed"
 	message, err := loadEmail("activate_email.html", map[string]string{"link": link})
 	if err != nil {
-		return err
+		Logger.Println("Error: sendVerification() - ", err)
+		return
 	}
 
 	e := email.NewEmail()
@@ -50,7 +51,10 @@ func sendVerification(to, link string) error {
 	e.To = []string{to}
 	e.Subject = subject
 	e.HTML = message
-	return e.Send(hnSmtpAddr, auth())
+	err = e.Send(hnSmtpAddr, auth())
+	if err != nil {
+		Logger.Println("Error: sendVerification() - ", err)
+	}
 }
 
 // sendUnsubscription delivers an email with the unsubscription link

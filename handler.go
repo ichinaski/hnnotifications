@@ -48,16 +48,20 @@ func setupHandlers() {
 // and email verification though a GET method and the user token
 func SubscribeHandler(w http.ResponseWriter, r *http.Request) {
 	email := r.FormValue("email")
+	if !validateAddress(email) {
+		writeMessage("Error: The email address is not valid!", w)
+		return
+	}
 	threshold, err := strconv.Atoi(r.FormValue("threshold"))
 	if err != nil {
-		writeError(err, w)
+		writeMessage("Error: The score field must be a number!", w)
 		return
 	}
 
 	u := newUser(email, threshold)
 	if err := db.upsertUser(u); err != nil {
 		if mgo.IsDup(err) {
-			writeMessage("This email account is already subscribed!", w)
+			writeMessage("Error: This email address is already subscribed!", w)
 		} else {
 			writeError(err, w)
 		}

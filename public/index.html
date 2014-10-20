@@ -9,15 +9,15 @@
             <h3 class="header"><a href="/">HN Notifications</a></h3>
 
             <div>
-                <h5>Get an email as soon as a Hacker News story reaches your custom score threshold</h5>
+                <h3>Get an email as soon as a Hacker News story reaches your custom score threshold</h3>
                 <form action="/subscribe" method="POST">
                     <div>
                         <label for="email">Email</label>
-                        <input type="text" name="email" id="email" placeholder="Email address">
+                        <input type="email" name="email" id="email" required="true" placeholder="Email address">
                     </div>
                     <div>
-                        <label for="inputThreshold">Threshold</label>
-                        <input type="text" name="threshold" id="inputThreshold" placeholder="Score threshold">
+                        <label for="score">Score</label>
+                        <input type="number" name="threshold" id="score" required="true" step="100" min="100" placeholder="Score threshold">
                     </div>
                     <button type="submit">Subscribe</button>
                 </form>
