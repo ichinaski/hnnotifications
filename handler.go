@@ -1,9 +1,7 @@
 package main
 
 import (
-	"errors"
 	"github.com/gorilla/mux"
-	"labix.org/v2/mgo"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -11,14 +9,19 @@ import (
 )
 
 const (
-	host = "http://localhost:8080" // TODO: Don't hard-code the scheme
+	host = "http://localhost:3000" // TODO: Don't hard-code the scheme
+
+	errInvalidEmail = "Error: The email address is not valid!"
+	errInvalidScore = "Error: The score field must be a number!"
+	errInvalidLink  = "Error: The link is not valid."
+	errNotFound     = "Error: The email address you provided is not subscribed to this service!"
+	linkSentMsg     = "An account verification email has been sent."
+	subscribedMsg   = "Your account is now active!"
+	unsubscribedMsg = "You have been successfully unsubscribed."
 )
 
 var (
-	errInvalidLink = errors.New("Error: The link is not valid.")
-
-	router *mux.Router
-
+	router    *mux.Router
 	templates = template.Must(template.ParseFiles(
 		"templates/info.html",
 		"templates/error.html",
@@ -44,38 +47,61 @@ func setupHandlers() {
 	http.Handle("/", router)
 }
 
-// SubscribeHandler will handle new registrations through a POST method,
-// and email verification though a GET method and the user token
+// SubscribeHandler will handle new registrations and score update requests
 func SubscribeHandler(w http.ResponseWriter, r *http.Request) {
-	email := r.FormValue("email")
-	if !validateAddress(email) {
-		writeMessage("Error: The email address is not valid!", w)
+	email, ok := parseEmail(r)
+	if !ok {
+		writeMessage(errInvalidEmail, w)
 		return
 	}
-	threshold, err := strconv.Atoi(r.FormValue("threshold"))
-	if err != nil {
-		writeMessage("Error: The score field must be a number!", w)
+	score, ok := parseScore(r)
+	if !ok {
+		writeMessage(errInvalidScore, w)
 		return
 	}
 
-	u := newUser(email, threshold)
-	if err := db.upsertUser(u); err != nil {
-		if mgo.IsDup(err) {
-			writeMessage("Error: This email address is already subscribed!", w)
-		} else {
+	q := url.Values{} // Link query parameters
+	u, ok := db.findUser(email)
+	if ok {
+		// The user already exists. The score will be added to the query
+		q.Set("score", strconv.Itoa(score))
+		u.Token = newToken() // reset user's token
+		if err := db.updateToken(u.Id, u.Token); err != nil {
 			writeError(err, w)
+			return
 		}
-		return
+	} else {
+		u = newUser(email, score)
+		if err := db.upsertUser(u); err != nil {
+			writeError(err, w)
+			return
+		}
 	}
 
-	path, _ := router.Get("activate").URL()
-	q := url.Values{}
 	q.Set("uid", u.Id.Hex())
 	q.Set("t", u.Token)
-	href := host + path.String() + "?" + q.Encode()
-	go sendVerification(email, href)
+	link := host + "/activate?" + q.Encode()
+	go sendVerification(email, link)
 
-	writeMessage("An account verification email has been sent.", w)
+	writeMessage(linkSentMsg, w)
+}
+
+func ActivateHandler(w http.ResponseWriter, r *http.Request) {
+	// TODO: Display different messages on register/update
+	uid, t := r.FormValue("uid"), r.FormValue("t")
+	score, ok := parseScore(r)
+	if ok {
+		// We need to update the score too
+		ok = db.updateScore(uid, t, score)
+	} else {
+		ok = db.activate(uid, t)
+	}
+
+	if ok {
+		writeMessage(subscribedMsg, w)
+	} else {
+		writeMessage(errInvalidLink, w)
+	}
 }
 
 // UnsubscribeHandler will handle unsubscription requests through a POST method,
@@ -83,21 +109,11 @@ func SubscribeHandler(w http.ResponseWriter, r *http.Request) {
 func UnsubscribeHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "POST":
-		email := r.FormValue("email")
-		if !validateAddress(email) {
-			writeMessage("Error: The email address is not valid!", w)
+		email, ok := parseEmail(r)
+		u, found := db.findUser(email)
+		if !ok || !found {
+			writeMessage(errNotFound, w)
 			return
-		}
-
-		u, err := db.findUser(email)
-		if err != nil {
-			if err == mgo.ErrNotFound {
-				writeMessage("Error: The email address you provided is not subscribed to this service!", w)
-			} else {
-				writeError(err, w)
-			}
-			return
-
 		}
 
 		u.Token = newToken() // reset user's token
@@ -106,39 +122,28 @@ func UnsubscribeHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		href := "http://" + r.Host // TODO: Do not hard-code the scheme!
-		path, _ := router.Get("unsubscribe").URL()
 		q := url.Values{}
 		q.Set("uid", u.Id.Hex())
 		q.Set("t", u.Token)
-		href = href + path.String() + "?" + q.Encode()
-		go sendUnsubscription(email, href)
+		link := host + "/unsubscribe?" + q.Encode()
+		go sendUnsubscription(email, link)
 
-		writeMessage("The unsubscribe link has been sent to your email.", w)
+		writeMessage(linkSentMsg, w)
 	case "GET":
 		// If the user and token is provided in the query, unsubscribe the user.
 		// Otherwise, display the unsubscription form
 		uid, t := r.FormValue("uid"), r.FormValue("t")
 		if uid != "" && t != "" {
 			if db.unsubscribe(uid, t) {
-				writeMessage("You have been successfully unsubscribed.", w)
+				writeMessage(unsubscribedMsg, w)
 			} else {
-				writeError(errInvalidLink, w)
+				writeMessage(errInvalidLink, w)
 			}
 		} else {
 			if err := templates.ExecuteTemplate(w, "unsubscribe.html", nil); err != nil {
 				writeError(err, w)
 			}
 		}
-	}
-}
-
-func ActivateHandler(w http.ResponseWriter, r *http.Request) {
-	uid, t := r.FormValue("uid"), r.FormValue("t")
-	if db.activate(uid, t) {
-		writeMessage("Your account is now active!", w)
-	} else {
-		writeError(errInvalidLink, w)
 	}
 }
 

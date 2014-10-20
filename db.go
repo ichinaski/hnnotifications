@@ -108,18 +108,22 @@ func (db *Database) validate(uid, token string) (*User, bool) {
 }
 
 func (db *Database) activate(uid, token string) bool {
-	u, ok := db.validate(uid, token)
+	_, ok := db.validate(uid, token)
 	if !ok {
 		return false
 	}
 
-	u.Active = true
-	err := db.upsertUser(u)
-	if err == nil {
-		return true
+	update := bson.M{
+		"$set": bson.M{
+			"active": true,
+			"token":  nil,
+		},
 	}
-	Logger.Println("Error: activate() - ", err)
-	return false
+	err := db.usersColl.UpdateId(bson.ObjectIdHex(uid), update)
+	if err != nil {
+		Logger.Println("Error: activate() - ", err)
+	}
+	return err == nil
 }
 
 func (db *Database) unsubscribe(uid, token string) bool {
@@ -136,6 +140,27 @@ func (db *Database) unsubscribe(uid, token string) bool {
 	return false
 }
 
+// updateScore validates the user and updates the score threshold
+func (db *Database) updateScore(uid, token string, score int) bool {
+	_, ok := db.validate(uid, token)
+	if !ok {
+		return false
+	}
+
+	update := bson.M{
+		"$set": bson.M{
+			"threshold": score,
+			"token":     nil,
+			"active":    true,
+		},
+	}
+	err := db.usersColl.UpdateId(bson.ObjectIdHex(uid), update)
+	if err != nil {
+		Logger.Println("Error: updateScore() - ", err)
+	}
+	return err == nil
+}
+
 func (db *Database) findUsersForItem(item, score int) []User {
 	var result []User
 	err := db.usersColl.Find(bson.M{"threshold": bson.M{"$lte": score}, "sentItems": bson.M{"$ne": item}, "active": true}).All(&result)
@@ -147,14 +172,18 @@ func (db *Database) findUsersForItem(item, score int) []User {
 }
 
 // UpdateSentItems adds the given item to the sentItems set in the user object
-func (db *Database) updateSentItems(uid bson.ObjectId, item int) error {
+func (db *Database) updateSentItems(uid bson.ObjectId, item int) bool {
 	update := bson.M{
 		"$addToSet": bson.M{
 			"sentItems": item,
 		},
 	}
 
-	return db.usersColl.UpdateId(uid, update)
+	err := db.usersColl.UpdateId(uid, update)
+	if err != nil {
+		Logger.Println("Error: updateScore() - ", err)
+	}
+	return err == nil
 }
 
 func (db *Database) updateToken(uid bson.ObjectId, token string) error {
@@ -166,8 +195,11 @@ func (db *Database) updateToken(uid bson.ObjectId, token string) error {
 	return db.usersColl.UpdateId(uid, update)
 }
 
-func (db *Database) findUser(email string) (*User, error) {
+func (db *Database) findUser(email string) (*User, bool) {
 	var u User
 	err := db.usersColl.Find(bson.M{"email": email}).One(&u)
-	return &u, err
+	if err != nil && err != mgo.ErrNotFound {
+		Logger.Println("Error: findUser() - ", err)
+	}
+	return &u, err == nil
 }

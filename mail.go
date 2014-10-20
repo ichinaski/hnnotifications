@@ -10,6 +10,7 @@ import (
 const (
 	commentsUrl    = "https://news.ycombinator.com/item?id=%d"
 	unsubscribeUrl = host + "/unsubscribe"
+	editScoreUrl   = host + "/edit"
 )
 
 const (
@@ -79,6 +80,7 @@ func sendItem(id int, title, url string, bcc []string) error {
 		"link":        url,
 		"discussion":  fmt.Sprintf(commentsUrl, id),
 		"unsubscribe": unsubscribeUrl,
+		"edit":        editScoreUrl,
 	}
 	message, err := loadEmail("item_email.html", data)
 	if err != nil {
