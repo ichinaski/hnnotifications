@@ -84,15 +84,15 @@ func UnsubscribeHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "POST":
 		email := r.FormValue("email")
-		if email == "" {
-			writeMessage("You must provide a valid email!", w)
+		if !validateAddress(email) {
+			writeMessage("Error: The email address is not valid!", w)
 			return
 		}
 
 		u, err := db.findUser(email)
 		if err != nil {
 			if err == mgo.ErrNotFound {
-				writeMessage("The email address you provided is not subscribed to this service!", w)
+				writeMessage("Error: The email address you provided is not subscribed to this service!", w)
 			} else {
 				writeError(err, w)
 			}
