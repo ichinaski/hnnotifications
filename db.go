@@ -9,7 +9,7 @@ import (
 type User struct {
 	Id        bson.ObjectId `bson:"_id"`       // Unique Identifier
 	Email     string        `bson:"email"`     // User mail. We do not need any more details
-	Threshold int           `bson:"threshold"` // Minimum score for an item to be sent
+	Score     int           `bson:"score"`     // Minimum score for an item to be sent
 	SentItems []int         `bson:"sentItems"` // Sent item ids
 	Token     string        `bson:"token"`     // User token
 	Active    bool          `bson:"active"`
@@ -17,11 +17,11 @@ type User struct {
 	// TODO: Add queue for unprocessed items (batch notifications)
 }
 
-func newUser(email string, threshold int) *User {
+func newUser(email string, score int) *User {
 	return &User{
 		Id:        bson.NewObjectId(),
 		Email:     email,
-		Threshold: threshold,
+		Score:     score,
 		Token:     newToken(),
 		Active:    false, // Email verification required
 		CreatedAt: time.Now(),
@@ -59,15 +59,15 @@ func setupDB() (*Database, error) {
 		panic(err)
 	}
 
-	// create threshold index
+	// create score index
 	if err := db.usersColl.EnsureIndex(mgo.Index{
-		Key: []string{"threshold"},
+		Key: []string{"score"},
 	}); err != nil {
 		panic(err)
 	}
 
 	if err := db.usersColl.EnsureIndex(mgo.Index{
-		Key: []string{"threshold", "sentItems", "active"},
+		Key: []string{"score", "sentItems", "active"},
 	}); err != nil {
 		panic(err)
 	}
@@ -149,9 +149,9 @@ func (db *Database) updateScore(uid, token string, score int) bool {
 
 	update := bson.M{
 		"$set": bson.M{
-			"threshold": score,
-			"token":     nil,
-			"active":    true,
+			"score":  score,
+			"token":  nil,
+			"active": true,
 		},
 	}
 	err := db.usersColl.UpdateId(bson.ObjectIdHex(uid), update)
@@ -163,7 +163,7 @@ func (db *Database) updateScore(uid, token string, score int) bool {
 
 func (db *Database) findUsersForItem(item, score int) []User {
 	var result []User
-	err := db.usersColl.Find(bson.M{"threshold": bson.M{"$lte": score}, "sentItems": bson.M{"$ne": item}, "active": true}).All(&result)
+	err := db.usersColl.Find(bson.M{"score": bson.M{"$lte": score}, "sentItems": bson.M{"$ne": item}, "active": true}).All(&result)
 	if err != nil {
 		Logger.Println(err)
 	}
