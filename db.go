@@ -94,27 +94,22 @@ func (db *Database) upsertUser(u *User) (err error) {
 	return
 }
 
-func (db *Database) validate(uid, token string) (*User, bool) {
-	if uid == "" || token == "" || !bson.IsObjectIdHex(uid) {
-		Logger.Printf("User validation error: %s - %s\n", uid, token)
+func (db *Database) validate(email, token string) (*User, bool) {
+	if email == "" || token == "" {
+		Logger.Printf("User validation error: %s - %s\n", email, token)
 		return nil, false
 	}
 
 	var u User
-	if err := db.users.FindId(bson.ObjectIdHex(uid)).One(&u); err != nil {
-		Logger.Println(err)
-		return nil, false
-	}
-
-	if token != u.Token {
-		Logger.Printf("User validation error. Token doesn't match: (%s, %s, %s) - %s\n", uid, u.Email, u.Token, token)
+	if err := db.users.Find(bson.M{"email": email, "token": token}).One(&u); err != nil {
+		Logger.Printf("User validation error: %s - %s. %v\n", email, token, err)
 		return nil, false
 	}
 	return &u, true
 }
 
-func (db *Database) activate(uid, token string) bool {
-	_, ok := db.validate(uid, token)
+func (db *Database) activate(email, token string) bool {
+	u, ok := db.validate(email, token)
 	if !ok {
 		return false
 	}
@@ -125,15 +120,15 @@ func (db *Database) activate(uid, token string) bool {
 			"token":  nil,
 		},
 	}
-	err := db.users.UpdateId(bson.ObjectIdHex(uid), update)
+	err := db.users.UpdateId(u.Id, update)
 	if err != nil {
 		Logger.Println("Error: activate() - ", err)
 	}
 	return err == nil
 }
 
-func (db *Database) unsubscribe(uid, token string) bool {
-	u, ok := db.validate(uid, token)
+func (db *Database) unsubscribe(email, token string) bool {
+	u, ok := db.validate(email, token)
 	if !ok {
 		return false
 	}
@@ -147,8 +142,8 @@ func (db *Database) unsubscribe(uid, token string) bool {
 }
 
 // updateScore validates the user and updates the score threshold
-func (db *Database) updateScore(uid, token string, score int) bool {
-	_, ok := db.validate(uid, token)
+func (db *Database) updateScore(email, token string, score int) bool {
+	u, ok := db.validate(email, token)
 	if !ok {
 		return false
 	}
@@ -160,7 +155,7 @@ func (db *Database) updateScore(uid, token string, score int) bool {
 			"active": true,
 		},
 	}
-	err := db.users.UpdateId(bson.ObjectIdHex(uid), update)
+	err := db.users.UpdateId(u.Id, update)
 	if err != nil {
 		Logger.Println("Error: updateScore() - ", err)
 	}
@@ -178,18 +173,14 @@ func (db *Database) findUsersForItem(item, score int) []User {
 }
 
 // UpdateSentItems adds the given item to the sentItems set in the user object
-func (db *Database) updateSentItems(uid bson.ObjectId, item int) bool {
+func (db *Database) updateSentItems(uid bson.ObjectId, item int) error {
 	update := bson.M{
 		"$addToSet": bson.M{
 			"sentItems": item,
 		},
 	}
 
-	err := db.users.UpdateId(uid, update)
-	if err != nil {
-		Logger.Println("Error: updateScore() - ", err)
-	}
-	return err == nil
+	return db.users.UpdateId(uid, update)
 }
 
 func (db *Database) updateToken(uid bson.ObjectId, token string) error {

@@ -13,6 +13,7 @@ const (
 
 	linkSentMsg     = "An account verification email has been sent."
 	subscribedMsg   = "Your account is now active!"
+	scoreUpdatedMsg = "Your score threshold has been successfully updated!"
 	unsubscribedMsg = "You have been successfully unsubscribed."
 )
 
@@ -113,8 +114,8 @@ func SubscribeHandler(ctx *Context, w http.ResponseWriter, r *http.Request) erro
 		}
 	}
 
-	q.Set("uid", u.Id.Hex())
-	q.Set("t", u.Token)
+	q.Set("email", u.Email)
+	q.Set("token", u.Token)
 	link := host + "/activate?" + q.Encode()
 	go sendVerification(email, link)
 
@@ -122,18 +123,19 @@ func SubscribeHandler(ctx *Context, w http.ResponseWriter, r *http.Request) erro
 }
 
 func ActivateHandler(ctx *Context, w http.ResponseWriter, r *http.Request) error {
-	// TODO: Display different messages on register/update
-	uid, t := r.FormValue("uid"), r.FormValue("t")
+	email, token := r.FormValue("email"), r.FormValue("token")
 	score, ok := parseScore(r)
+	msg := subscribedMsg
 	if ok {
 		// We need to update the score too
-		ok = ctx.db.updateScore(uid, t, score)
+		ok = ctx.db.updateScore(email, token, score)
 	} else {
-		ok = ctx.db.activate(uid, t)
+		ok = ctx.db.activate(email, token)
+		msg = scoreUpdatedMsg
 	}
 
 	if ok {
-		return writeMessage(subscribedMsg, w)
+		return writeMessage(msg, w)
 	}
 	return errMessage{errInvalidLink}
 }
@@ -155,15 +157,15 @@ func UnsubscribeHandler(ctx *Context, w http.ResponseWriter, r *http.Request) er
 		}
 
 		q := url.Values{}
-		q.Set("uid", u.Id.Hex())
-		q.Set("t", u.Token)
+		q.Set("email", u.Email)
+		q.Set("token", u.Token)
 		link := host + "/unsubscribe?" + q.Encode()
 		go sendUnsubscription(email, link)
 
 		return writeMessage(linkSentMsg, w)
 	case "GET":
-		uid, t := r.FormValue("uid"), r.FormValue("t")
-		if ctx.db.unsubscribe(uid, t) {
+		email, token := r.FormValue("email"), r.FormValue("token")
+		if ctx.db.unsubscribe(email, token) {
 			return writeMessage(unsubscribedMsg, w)
 		}
 		return errMessage{errInvalidLink}

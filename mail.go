@@ -38,18 +38,6 @@ func loadEmail(templ string, data interface{}) ([]byte, error) {
 	return doc.Bytes(), err
 }
 
-/*
-func loadEmail(templ string, data interface{}) ([]byte, error) {
-	var doc bytes.Buffer
-	t, ok := templates[templ]
-	if !ok {
-		return nil, errors.New(fmt.Sprintf("Template %s not found", templ))
-	}
-	err := t.Execute(&doc, data)
-	return doc.Bytes(), err
-}
-*/
-
 // sendVerification delivers an email with the account verification link
 func sendVerification(to, link string) {
 	subject := "HN Notifications - Email verification needed"

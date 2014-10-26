@@ -102,7 +102,9 @@ func run() {
 
 			// Update each user's sentItem list. TODO: Use mgo's UpdateAll() function, updating all users at the same time
 			for _, u := range users {
-				db.updateSentItems(u.Id, item.Id)
+				if err := db.updateSentItems(u.Id, item.Id); err != nil {
+					Logger.Println("Error: updateScore() - ", err)
+				}
 			}
 		}
 	}
