@@ -1,0 +1,12 @@
+{
+    "url" : "http://127.0.0.1:3000",
+    "addr": ":3000",
+    "email" : "Name <user@example.com>",
+    "dbAddr" : "localhost",
+    "smtp" : {
+        "host" : "smtp.example.com",
+        "addr" : "smtp.example.com:587",
+        "user" : "user@example.com",
+        "pass" : "monkey12345"
+    }
+}

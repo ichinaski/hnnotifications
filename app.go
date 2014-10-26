@@ -18,13 +18,15 @@ const (
 )
 
 var (
+	config = loadConfig()
 	Logger = log.New(os.Stdout, "  ", log.LstdFlags|log.Lshortfile)
 )
 
 func main() {
+	initDb() // Will panic on failure
 	// set up a goroutine that will periodically call run()
 	go func() {
-		run()
+		//run()
 		ticker := time.NewTicker(runInterval)
 		for {
 			select {
@@ -35,8 +37,8 @@ func main() {
 	}()
 
 	setupHandlers()
-	Logger.Println("Listening...")
-	http.ListenAndServe(":3000", nil)
+	Logger.Printf("Listening on %s...\n", config.Addr)
+	http.ListenAndServe(config.Addr, nil)
 }
 
 // Item represents a HN story

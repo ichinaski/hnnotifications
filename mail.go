@@ -8,28 +8,12 @@ import (
 )
 
 const (
-	commentsUrl    = "https://news.ycombinator.com/item?id=%d"
-	unsubscribeUrl = host + "/unsubscribe"
-	editScoreUrl   = host + "/edit"
-)
-
-const (
-	//hnUsername = "hnnotifications"
-	//hnPassword = "f(dY4Bx_9U"
-	//hnSmtpAddr = "smtp.gmail.com:587"
-	//hnEmail = "hnnotifications@gmail.com"
-
-	// TODO: Shitfuck use env vars instead!!
-	hnUsername = "inigo@ichinaski.com"
-	hnPassword = "8gvBue45"
-	hnSmtpHost = "smtp.zoho.com"
-	hnSmtpAddr = "smtp.zoho.com:587"
-	hnEmail    = "HN Notifications <inigo@ichinaski.com>"
+	commentsUrl = "https://news.ycombinator.com/item?id=%d"
 )
 
 func auth() smtp.Auth {
 	// Set up authentication information.
-	return smtp.PlainAuth("", hnUsername, hnPassword, hnSmtpHost)
+	return smtp.PlainAuth("", config.SMTP.User, config.SMTP.Password, config.SMTP.Host)
 }
 
 func loadEmail(templ string, data interface{}) ([]byte, error) {
@@ -48,11 +32,11 @@ func sendVerification(to, link string) {
 	}
 
 	e := email.NewEmail()
-	e.From = hnEmail
+	e.From = config.Email
 	e.To = []string{to}
 	e.Subject = subject
 	e.HTML = message
-	err = e.Send(hnSmtpAddr, auth())
+	err = e.Send(config.SMTP.Addr, auth())
 	if err != nil {
 		Logger.Println("Error: sendVerification() - ", err)
 	}
@@ -67,20 +51,19 @@ func sendUnsubscription(to, link string) error {
 	}
 
 	e := email.NewEmail()
-	e.From = hnEmail
+	e.From = config.Email
 	e.To = []string{to}
 	e.Subject = subject
 	e.HTML = message
-	return e.Send(hnSmtpAddr, auth())
+	return e.Send(config.SMTP.Addr, auth())
 }
 
 func sendItem(id int, title, url string, bcc []string) error {
 	data := map[string]string{
-		"title":       title,
-		"link":        url,
-		"discussion":  fmt.Sprintf(commentsUrl, id),
-		"unsubscribe": unsubscribeUrl,
-		"edit":        editScoreUrl,
+		"title":      title,
+		"link":       url,
+		"discussion": fmt.Sprintf(commentsUrl, id),
+		"settings":   config.Url + "/settings",
 	}
 	message, err := loadEmail("item_email", data)
 	if err != nil {
@@ -88,9 +71,9 @@ func sendItem(id int, title, url string, bcc []string) error {
 	}
 
 	e := email.NewEmail()
-	e.From = hnEmail
+	e.From = config.Email
 	e.Bcc = bcc
 	e.Subject = title
 	e.HTML = message
-	return e.Send(hnSmtpAddr, auth())
+	return e.Send(config.SMTP.Addr, auth())
 }

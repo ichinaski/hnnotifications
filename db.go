@@ -10,9 +10,10 @@ var (
 	session *mgo.Session // Though global, this session is meant to be copied for each database object creation
 )
 
-func init() {
+// initDb sets up the DB configuration. Panics upon error
+func initDb() {
 	var err error
-	session, err = mgo.Dial("localhost")
+	session, err = mgo.Dial(config.DBAddr)
 	if err != nil {
 		panic(err)
 	}

@@ -9,8 +9,6 @@ import (
 )
 
 const (
-	host = "http://localhost:3000" // TODO: Don't hard-code the scheme
-
 	linkSentMsg     = "An account verification email has been sent."
 	subscribedMsg   = "Your account is now active!"
 	scoreUpdatedMsg = "Your score threshold has been successfully updated!"
@@ -116,7 +114,7 @@ func SubscribeHandler(ctx *Context, w http.ResponseWriter, r *http.Request) erro
 
 	q.Set("email", u.Email)
 	q.Set("token", u.Token)
-	link := host + "/activate?" + q.Encode()
+	link := config.Url + "/activate?" + q.Encode()
 	go sendVerification(email, link)
 
 	return writeMessage(linkSentMsg, w)
@@ -129,9 +127,9 @@ func ActivateHandler(ctx *Context, w http.ResponseWriter, r *http.Request) error
 	if ok {
 		// We need to update the score too
 		ok = ctx.db.updateScore(email, token, score)
+		msg = scoreUpdatedMsg
 	} else {
 		ok = ctx.db.activate(email, token)
-		msg = scoreUpdatedMsg
 	}
 
 	if ok {
@@ -159,7 +157,7 @@ func UnsubscribeHandler(ctx *Context, w http.ResponseWriter, r *http.Request) er
 		q := url.Values{}
 		q.Set("email", u.Email)
 		q.Set("token", u.Token)
-		link := host + "/unsubscribe?" + q.Encode()
+		link := config.Url + "/unsubscribe?" + q.Encode()
 		go sendUnsubscription(email, link)
 
 		return writeMessage(linkSentMsg, w)
