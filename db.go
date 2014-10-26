@@ -6,6 +6,47 @@ import (
 	"time"
 )
 
+var (
+	session *mgo.Session // Though global, this session is meant to be copied for each database object creation
+)
+
+func init() {
+	var err error
+	session, err = mgo.Dial("localhost")
+	if err != nil {
+		panic(err)
+	}
+	Logger.Println("Connected to MongoDB")
+
+	session.EnsureSafe(&mgo.Safe{})
+	// mgo.SetLogger(Logger)
+	// mgo.SetDebug(true)
+
+	db := newDatabase()
+	defer db.close()
+
+	//create an index for the email field on the users collection
+	if err := db.users.EnsureIndex(mgo.Index{
+		Key:    []string{"email"},
+		Unique: true,
+	}); err != nil {
+		panic(err)
+	}
+
+	// create score index
+	if err := db.users.EnsureIndex(mgo.Index{
+		Key: []string{"score"},
+	}); err != nil {
+		panic(err)
+	}
+
+	if err := db.users.EnsureIndex(mgo.Index{
+		Key: []string{"score", "sentItems", "active"},
+	}); err != nil {
+		panic(err)
+	}
+}
+
 type User struct {
 	Id        bson.ObjectId `bson:"_id"`       // Unique Identifier
 	Email     string        `bson:"email"`     // User mail. We do not need any more details
@@ -29,82 +70,47 @@ func newUser(email string, score int) *User {
 }
 
 type Database struct {
-	db        *mgo.Database
-	usersColl *mgo.Collection
+	mdb   *mgo.Database
+	users *mgo.Collection
 }
 
-func setupDB() (*Database, error) {
-	session, err := mgo.Dial("localhost")
-	if err != nil {
-		return nil, err
+// newDatabase created a new Database, cloning the initial mgo.Session
+// The caller *must* call close() before disposing the Database
+func newDatabase() *Database {
+	s := session.Copy()
+	mdb := s.DB("hnnotifications")
+	return &Database{
+		mdb:   mdb,
+		users: mdb.C("users"),
 	}
-	Logger.Println("Connected to MongoDB")
+}
 
-	session.EnsureSafe(&mgo.Safe{})
-	// mgo.SetLogger(Logger)
-	// mgo.SetDebug(true)
-
-	database := session.DB("hnnotifications")
-	db := &Database{
-		db:        database,
-		usersColl: database.C("users"),
-		// TODO: Create a new collection for sent notifications (ids, times, users, etc)
-	}
-
-	//create an index for the email field on the users collection
-	if err := db.usersColl.EnsureIndex(mgo.Index{
-		Key:    []string{"email"},
-		Unique: true,
-	}); err != nil {
-		panic(err)
-	}
-
-	// create score index
-	if err := db.usersColl.EnsureIndex(mgo.Index{
-		Key: []string{"score"},
-	}); err != nil {
-		panic(err)
-	}
-
-	if err := db.usersColl.EnsureIndex(mgo.Index{
-		Key: []string{"score", "sentItems", "active"},
-	}); err != nil {
-		panic(err)
-	}
-
-	// create sent items index
-	/*
-		// create sent items index
-		if err := db.usersColl.EnsureIndex(mgo.Index{
-			Key: []string{"email", "notifications.sentAt"},
-		}); err != nil {
-			panic(err)
-		}
-	*/
-
-	//u := User{bson.NewObjectId(), "ichinaski", 400, []int{8441939, 8450147, 8448617}, time.Now()}
-	//db.usersColl.UpsertId(u.Id, u)
-
-	return db, nil
+func (db *Database) close() {
+	db.mdb.Session.Close()
 }
 
 func (db *Database) upsertUser(u *User) (err error) {
-	_, err = db.usersColl.UpsertId(u.Id, u)
+	_, err = db.users.UpsertId(u.Id, u)
 	return
 }
 
 func (db *Database) validate(uid, token string) (*User, bool) {
 	if uid == "" || token == "" || !bson.IsObjectIdHex(uid) {
-		return nil, false
-	}
-	var u User
-	err := db.usersColl.FindId(bson.ObjectIdHex(uid)).One(&u)
-	if err != nil {
-		Logger.Println("Error: validate() - ", err)
+		Logger.Printf("User validation error: %s - %s\n", uid, token)
 		return nil, false
 	}
 
-	return &u, token == u.Token
+	var u User
+	if err := db.users.FindId(bson.ObjectIdHex(uid)).One(&u); err != nil {
+		Logger.Println(err)
+		return nil, false
+	}
+
+	if token != u.Token {
+		Logger.Printf("User validation error. Token doesn't match: (%s, %s, %s) - %s\n", uid, u.Email, u.Token, token)
+		return nil, false
+	}
+	return &u, true
 }
 
 func (db *Database) activate(uid, token string) bool {
@@ -119,7 +125,7 @@ func (db *Database) activate(uid, token string) bool {
 			"token":  nil,
 		},
 	}
-	err := db.usersColl.UpdateId(bson.ObjectIdHex(uid), update)
+	err := db.users.UpdateId(bson.ObjectIdHex(uid), update)
 	if err != nil {
 		Logger.Println("Error: activate() - ", err)
 	}
@@ -132,7 +138,7 @@ func (db *Database) unsubscribe(uid, token string) bool {
 		return false
 	}
 
-	err := db.usersColl.RemoveId(u.Id)
+	err := db.users.RemoveId(u.Id)
 	if err == nil {
 		return true
 	}
@@ -154,7 +160,7 @@ func (db *Database) updateScore(uid, token string, score int) bool {
 			"active": true,
 		},
 	}
-	err := db.usersColl.UpdateId(bson.ObjectIdHex(uid), update)
+	err := db.users.UpdateId(bson.ObjectIdHex(uid), update)
 	if err != nil {
 		Logger.Println("Error: updateScore() - ", err)
 	}
@@ -163,7 +169,7 @@ func (db *Database) updateScore(uid, token string, score int) bool {
 
 func (db *Database) findUsersForItem(item, score int) []User {
 	var result []User
-	err := db.usersColl.Find(bson.M{"score": bson.M{"$lte": score}, "sentItems": bson.M{"$ne": item}, "active": true}).All(&result)
+	err := db.users.Find(bson.M{"score": bson.M{"$lte": score}, "sentItems": bson.M{"$ne": item}, "active": true}).All(&result)
 	if err != nil {
 		Logger.Println(err)
 	}
@@ -179,7 +185,7 @@ func (db *Database) updateSentItems(uid bson.ObjectId, item int) bool {
 		},
 	}
 
-	err := db.usersColl.UpdateId(uid, update)
+	err := db.users.UpdateId(uid, update)
 	if err != nil {
 		Logger.Println("Error: updateScore() - ", err)
 	}
@@ -192,12 +198,12 @@ func (db *Database) updateToken(uid bson.ObjectId, token string) error {
 			"token": token,
 		},
 	}
-	return db.usersColl.UpdateId(uid, update)
+	return db.users.UpdateId(uid, update)
 }
 
 func (db *Database) findUser(email string) (*User, bool) {
 	var u User
-	err := db.usersColl.Find(bson.M{"email": email}).One(&u)
+	err := db.users.Find(bson.M{"email": email}).One(&u)
 	if err != nil && err != mgo.ErrNotFound {
 		Logger.Println("Error: findUser() - ", err)
 	}

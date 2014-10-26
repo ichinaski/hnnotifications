@@ -18,18 +18,10 @@ const (
 )
 
 var (
-	debug  = true
-	db     *Database
 	Logger = log.New(os.Stdout, "  ", log.LstdFlags|log.Lshortfile)
 )
 
 func main() {
-	var err error
-	db, err = setupDB()
-	if err != nil {
-		Logger.Fatal(err)
-	}
-
 	// set up a goroutine that will periodically call run()
 	go func() {
 		run()
@@ -62,6 +54,9 @@ type Item struct {
 // run fetches the top HN stories and sends notifications according to each user's score threshold
 func run() {
 	Logger.Println("run() - started...")
+	db := newDatabase()
+	defer db.close()
+
 	ids, err := getTopStories()
 	if err != nil {
 		Logger.Println(err)

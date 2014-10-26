@@ -6,7 +6,10 @@ input[type=\"submit\"] { font-family:Verdana, Geneva, sans-serif; }
 a:link    { color:#000000; text-decoration:none; }
 a:visited { color:#828282; text-decoration:none; }
 
-.content {width:80em; margin:0em auto 10em; background:#f6f6ef; }
-.header { padding:0.5em; background:#ff6600; }
+.hnpanel {width:80em; margin:0em auto 10em; background:#f6f6ef; }
+.header { padding:0.5em; background:#ff6600; margin:0 auto; overflow:hidden;}
 .header a { color:#000; }
-.content div { padding:0em 0.5em 0.5em 0.5em; }
+.title { font-weight:bold; }
+.navlinks { float:right; }
+
+.content { padding:0em 0.5em 0.5em 0.5em; }

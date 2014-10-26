@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title>HN Notifications</title>
+        <link href="/style.css" rel="stylesheet"/>
+    </head>
+    <body>
+        <div class="hnpanel">
+            <div class="header">
+                <a href="/"><span class="title">HN Notifications</span></a>
+                <div class="navlinks">
+                    <a href="/#">About</a> | <a href="/settings">Settings</a>
+                </div>
+            </div>
+            <div class="content">
+                <p>In order to update your score threshold, fill out the following form:</p>
+                <form action="/subscribe" method="POST">
+                    <div>
+                        <label for="email">Email</label>
+                        <input type="email" name="email" id="email" required="true" placeholder="Email address">
+                    </div>
+                    <div>
+                        <label for="score">Score</label>
+                        <input type="number" name="score" id="score" required="true" step="100" min="100" placeholder="Score threshold">
+                    </div>
+                    <button type="submit">Submit</button>
+                </form>
+                <p>In order to unsubscribe, enter your email address in the form below:</p>
+                <form action="/unsubscribe" method="POST">
+                    <div>
+                        <label for="email">Email</label>
+                        <input type="email" name="email" id="email" placeholder="Email address">
+                    </div>
+                    <button type="submit">Unsubscribe</button>
+                </form>
+            </div>
+        </div>
+    </body>
+</html>

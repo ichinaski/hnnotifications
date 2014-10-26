@@ -34,14 +34,26 @@ func auth() smtp.Auth {
 
 func loadEmail(templ string, data interface{}) ([]byte, error) {
 	var doc bytes.Buffer
-	err := templates.ExecuteTemplate(&doc, templ, data)
+	err := useTemplate(templ, data, &doc)
 	return doc.Bytes(), err
 }
+
+/*
+func loadEmail(templ string, data interface{}) ([]byte, error) {
+	var doc bytes.Buffer
+	t, ok := templates[templ]
+	if !ok {
+		return nil, errors.New(fmt.Sprintf("Template %s not found", templ))
+	}
+	err := t.Execute(&doc, data)
+	return doc.Bytes(), err
+}
+*/
 
 // sendVerification delivers an email with the account verification link
 func sendVerification(to, link string) {
 	subject := "HN Notifications - Email verification needed"
-	message, err := loadEmail("activate_email.html", map[string]string{"link": link})
+	message, err := loadEmail("activate_email", map[string]string{"link": link})
 	if err != nil {
 		Logger.Println("Error: sendVerification() - ", err)
 		return
@@ -61,7 +73,7 @@ func sendVerification(to, link string) {
 // sendUnsubscription delivers an email with the unsubscription link
 func sendUnsubscription(to, link string) error {
 	subject := "HN Notifications - Unsubscribe"
-	message, err := loadEmail("unsubscribe_email.html", map[string]string{"link": link})
+	message, err := loadEmail("unsubscribe_email", map[string]string{"link": link})
 	if err != nil {
 		return err
 	}
@@ -82,7 +94,7 @@ func sendItem(id int, title, url string, bcc []string) error {
 		"unsubscribe": unsubscribeUrl,
 		"edit":        editScoreUrl,
 	}
-	message, err := loadEmail("item_email.html", data)
+	message, err := loadEmail("item_email", data)
 	if err != nil {
 		return err
 	}

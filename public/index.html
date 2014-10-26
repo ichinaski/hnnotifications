@@ -5,10 +5,14 @@
         <link href="/style.css" rel="stylesheet"/>
     </head>
     <body>
-        <div class="content">
-            <h3 class="header"><a href="/">HN Notifications</a></h3>
-
-            <div>
+        <div class="hnpanel">
+            <div class="header">
+                <a href="/"><span class="title">HN Notifications</span></a>
+                <div class="navlinks">
+                    <a href="/#">About</a> | <a href="/settings">Settings</a>
+                </div>
+            </div>
+            <div class="content">
                 <h3>Get an email as soon as a Hacker News story reaches your custom score threshold</h3>
                 <form action="/subscribe" method="POST">
                     <div>
