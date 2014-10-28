@@ -75,10 +75,13 @@ func setupHandlers() {
 	router.HandleFunc("/unsubscribe", handler(UnsubscribeHandler)).
 		Methods("GET", "POST")
 
-	// serve settings.html static file. index.html works the same way,
+	// serve settings.html, about.html static files. index.html works the same way,
 	// though it's automatically handled by the root handler
 	router.HandleFunc("/settings", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, "./public/settings.html")
+	})
+	router.HandleFunc("/about", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "./public/about.html")
 	})
 
 	router.PathPrefix("/").Handler(http.FileServer(http.Dir("./public/")))

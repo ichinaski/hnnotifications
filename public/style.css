@@ -3,8 +3,7 @@ body  { font-family:Verdana, Geneva, sans-serif; font-size:10pt; color:#000000; 
 input    { font-family:Courier; font-size:10pt; color:#000000; }
 input[type=\"submit\"] { font-family:Verdana, Geneva, sans-serif; }
 
-a:link    { color:#000000; text-decoration:none; }
-a:visited { color:#828282; text-decoration:none; }
+.header a:link { color:#000000; text-decoration:none; }
 
 .hnpanel {width:80em; margin:0em auto 10em; background:#f6f6ef; }
 .header { padding:0.5em; background:#ff6600; margin:0 auto; overflow:hidden;}
