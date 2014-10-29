@@ -80,9 +80,6 @@ func setupHandlers() {
 	router.HandleFunc("/settings", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, "./public/settings.html")
 	})
-	router.HandleFunc("/about", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "./public/about.html")
-	})
 
 	router.PathPrefix("/").Handler(http.FileServer(http.Dir("./public/")))
 	http.Handle("/", router)

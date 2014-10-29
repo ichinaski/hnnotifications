@@ -9,11 +9,11 @@
             <div class="header">
                 <a href="/"><span class="title">HN Notifications</span></a>
                 <div class="navlinks">
-                    <a href="/about">About</a> | <a href="/settings">Settings</a>
+                    <a href="/settings">Settings</a>
                 </div>
             </div>
             <div class="content">
-                <p>In order to update your score threshold, fill out the following form, and a confirmation email will be sent to your account:</p>
+                <p class="title">Update score threshold:</p>
                 <form action="/subscribe" method="POST">
                     <div>
                         <label for="email">Email</label>
@@ -25,7 +25,7 @@
                     </div>
                     <button type="submit">Submit</button>
                 </form>
-                <p>In order to unsubscribe, enter your email address in the form below, and click the confirmation link that we'll send you to your email:</p>
+                <p class="title">Unsubscribe:</p>
                 <form action="/unsubscribe" method="POST">
                     <div>
                         <label for="email">Email</label>
