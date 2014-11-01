@@ -26,7 +26,7 @@ func main() {
 	initDb() // Will panic on failure
 	// set up a goroutine that will periodically call run()
 	go func() {
-		//run()
+		run()
 		ticker := time.NewTicker(runInterval)
 		for {
 			select {
@@ -55,7 +55,8 @@ type Item struct {
 
 // run fetches the top HN stories and sends notifications according to each user's score threshold
 func run() {
-	Logger.Println("run() - started...")
+	Logger.Println("Notifier started...")
+	t0 := time.Now()
 	db := newDatabase()
 	defer db.close()
 
@@ -111,7 +112,7 @@ func run() {
 		}
 	}
 
-	Logger.Println("run() - finished")
+	Logger.Printf("Notifier finished - Total time: %s\n", time.Now().Sub(t0).String())
 }
 
 // getTopStories reads the top stories IDs from the API

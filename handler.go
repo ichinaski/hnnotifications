@@ -40,7 +40,7 @@ func newContext() *Context {
 
 func handler(f func(ctx *Context, w http.ResponseWriter, r *http.Request) error) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		Logger.Printf("%s %s\n", r.Method, r.URL.Path)
+		Logger.Printf("%s %s %s\n", r.Method, r.URL.Path, r.URL.RawQuery)
 		ctx := newContext()
 		defer ctx.db.close()
 
@@ -174,4 +174,14 @@ func UnsubscribeHandler(ctx *Context, w http.ResponseWriter, r *http.Request) er
 // writeMessage renders a message in the default 'info' template
 func writeMessage(msg string, w http.ResponseWriter) error {
 	return useTemplate("info", msg, w)
+}
+
+func parseEmail(r *http.Request) (string, bool) {
+	email := r.FormValue("email")
+	return email, validateAddress(email)
+}
+
+func parseScore(r *http.Request) (int, bool) {
+	score, err := strconv.Atoi(r.FormValue("score"))
+	return score, err == nil
 }

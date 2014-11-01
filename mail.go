@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/jordan-wright/email"
+	"net/mail"
 	"net/smtp"
 )
 
@@ -76,4 +77,9 @@ func sendItem(id int, title, url string, bcc []string) error {
 	e.Subject = title
 	e.HTML = message
 	return e.Send(config.SMTP.Addr, auth())
+}
+
+func validateAddress(email string) bool {
+	_, err := mail.ParseAddress(email)
+	return err == nil
 }
