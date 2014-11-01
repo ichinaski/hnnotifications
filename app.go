@@ -24,6 +24,8 @@ var (
 
 func main() {
 	initDb() // Will panic on failure
+	setupHandlers()
+
 	// set up a goroutine that will periodically call run()
 	go func() {
 		run()
@@ -36,24 +38,24 @@ func main() {
 		}
 	}()
 
-	setupHandlers()
 	Logger.Printf("Listening on %s...\n", config.Addr)
 	http.ListenAndServe(config.Addr, nil)
 }
 
-// Item represents a HN story
+// Item represents a HN story.
 type Item struct {
-	By    string
+	By    string // unused
 	Id    int
-	Kids  []int64
+	Kids  []int64 // unused
 	Score int
-	Time  int64
+	Time  int64 // unused
 	Title string
-	Type  string
+	Type  string // unused
 	Url   string
 }
 
 // run fetches the top HN stories and sends notifications according to each user's score threshold
+// The channel fan-in approach is fully inspired by the example in http://blog.golang.org/pipelines
 func run() {
 	Logger.Println("Notifier started...")
 	t0 := time.Now()
@@ -82,7 +84,7 @@ func run() {
 		return out
 	}
 
-	// Fetch items concurrently. Each channel will only hold one item
+	// Fetch items concurrently. Each channel will just hold one item
 	cs := make([]chan Item, len(ids))
 	for i, id := range ids {
 		cs[i] = fetchItem(id)
@@ -90,8 +92,7 @@ func run() {
 
 	for item := range merge(cs...) {
 		if users := db.findUsersForItem(item.Id, item.Score); len(users) > 0 {
-			// Create a slice with all the recipients for this item
-			emails := make([]string, len(users))
+			emails := make([]string, len(users)) // Create a slice with all the recipients for this item
 			for i, u := range users {
 				emails[i] = u.Email
 			}
@@ -103,11 +104,9 @@ func run() {
 			}
 			Logger.Printf("Item %d sent to users: %v\n", item.Id, emails)
 
-			// Update each user's sentItem list. TODO: Use mgo's UpdateAll() function, updating all users at the same time
-			for _, u := range users {
-				if err := db.updateSentItems(u.Id, item.Id); err != nil {
-					Logger.Println("Error: updateScore() - ", err)
-				}
+			// Update items set
+			if err := db.updateSentItems(emails, item.Id); err != nil {
+				Logger.Println("Error: updateItems() - ", err)
 			}
 		}
 	}
@@ -161,7 +160,6 @@ func getItem(id int) (item Item, err error) {
 }
 
 // merge converts a list of channels to a single channel.
-// Based on the example in http://blog.golang.org/pipelines
 func merge(cs ...chan Item) <-chan Item {
 	var wg sync.WaitGroup
 	out := make(chan Item)
