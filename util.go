@@ -5,9 +5,9 @@ import (
 	"encoding/base64"
 )
 
-// newToken creates 16 byte random ID
+// newToken creates 16 byte random ID.
 func newToken() string {
-	size := 16 // key size
+	size := 16 // key size.
 
 	b := make([]byte, size)
 	_, err := rand.Read(b)

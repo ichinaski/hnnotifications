@@ -19,7 +19,7 @@ func init() {
 	templates["unsubscribe_email"] = template.Must(template.ParseFiles("templates/unsubscribe_email.html"))
 }
 
-// useTemplate applies the given data to the template, and writes the output to w
+// useTemplate applies the given data to the template, and writes the output to w.
 func useTemplate(name string, data interface{}, w io.Writer) error {
 	t, ok := templates[name]
 	if !ok {

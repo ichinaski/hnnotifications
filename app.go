@@ -54,8 +54,8 @@ type Item struct {
 	Url   string
 }
 
-// run fetches the top HN stories and sends notifications according to each user's score threshold
-// The channel fan-in approach is fully inspired by the example in http://blog.golang.org/pipelines
+// run fetches the top HN stories and sends notifications according to each user's score threshold.
+// The channel fan-in approach is fully inspired by the example in http://blog.golang.org/pipelines.
 func run() {
 	Logger.Println("Notifier started...")
 	t0 := time.Now()
@@ -84,7 +84,7 @@ func run() {
 		return out
 	}
 
-	// Fetch items concurrently. Each channel will just hold one item
+	// Fetch items concurrently. Each channel will just hold one item.
 	cs := make([]chan Item, len(ids))
 	for i, id := range ids {
 		cs[i] = fetchItem(id)
@@ -92,19 +92,19 @@ func run() {
 
 	for item := range merge(cs...) {
 		if users := db.findUsersForItem(item.Id, item.Score); len(users) > 0 {
-			emails := make([]string, len(users)) // Create a slice with all the recipients for this item
+			emails := make([]string, len(users)) // Create a slice with all the recipients for this item.
 			for i, u := range users {
 				emails[i] = u.Email
 			}
 
-			// Send the email
+			// Send the email.
 			if err := sendItem(item.Id, item.Title, item.Url, emails); err != nil {
 				Logger.Println("Error sending mail: ", err)
 				continue
 			}
 			Logger.Printf("Item %d sent to users: %v\n", item.Id, emails)
 
-			// Update items set
+			// Update items set.
 			if err := db.updateSentItems(emails, item.Id); err != nil {
 				Logger.Println("Error: updateItems() - ", err)
 			}
@@ -114,7 +114,7 @@ func run() {
 	Logger.Printf("Notifier finished - Total time: %s\n", time.Now().Sub(t0).String())
 }
 
-// getTopStories reads the top stories IDs from the API
+// getTopStories reads the top stories IDs from the API.
 func getTopStories() ([]int, error) {
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", topStoriesUrl, nil)
@@ -137,7 +137,7 @@ func getTopStories() ([]int, error) {
 	return res.Items, err
 }
 
-// getItem reads the HN story item from the API
+// getItem reads the HN story item from the API.
 func getItem(id int) (item Item, err error) {
 	url := fmt.Sprintf(itemUrl, id)
 	client := &http.Client{}

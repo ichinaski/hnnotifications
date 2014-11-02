@@ -12,19 +12,19 @@ const (
 	commentsUrl = "https://news.ycombinator.com/item?id=%d"
 )
 
-// auth set up SMTP account credentials
+// auth sets up SMTP account credentials.
 func auth() smtp.Auth {
 	return smtp.PlainAuth("", config.SMTP.User, config.SMTP.Password, config.SMTP.Host)
 }
 
-// loadEmail applies the given data to a particular email template, returning the output bytes
+// loadEmail applies the given data to a particular email template, returning the output bytes.
 func loadEmail(templ string, data interface{}) ([]byte, error) {
 	var doc bytes.Buffer
 	err := useTemplate(templ, data, &doc)
 	return doc.Bytes(), err
 }
 
-// sendVerification delivers an email with the account verification link
+// sendVerification delivers an email with the account verification link.
 func sendVerification(to, link string) {
 	subject := "HN Notifications - Email verification needed"
 	message, err := loadEmail("activate_email", map[string]string{"link": link})
@@ -44,7 +44,7 @@ func sendVerification(to, link string) {
 	}
 }
 
-// sendUnsubscription delivers an email with the unsubscription link
+// sendUnsubscription delivers an email with the unsubscription link.
 func sendUnsubscription(to, link string) error {
 	subject := "HN Notifications - Unsubscribe"
 	message, err := loadEmail("unsubscribe_email", map[string]string{"link": link})
@@ -60,7 +60,7 @@ func sendUnsubscription(to, link string) error {
 	return e.Send(config.SMTP.Addr, auth())
 }
 
-// sendItem delivers a notification email for the given item
+// sendItem delivers a notification email for the given item.
 func sendItem(id int, title, url string, bcc []string) error {
 	data := map[string]string{
 		"title":      title,
@@ -81,7 +81,7 @@ func sendItem(id int, title, url string, bcc []string) error {
 	return e.Send(config.SMTP.Addr, auth())
 }
 
-// validateAddress is a simple email validation function
+// validateAddress is a simple email validation function.
 func validateAddress(email string) bool {
 	_, err := mail.ParseAddress(email)
 	return err == nil

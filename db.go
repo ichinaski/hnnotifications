@@ -7,10 +7,10 @@ import (
 )
 
 var (
-	session *mgo.Session // Though global, this session is meant to be copied for each database instance
+	session *mgo.Session // Though global, this session is meant to be copied for each database instance.
 )
 
-// initDb sets up the DB configuration. Panics upon error
+// initDb sets up the DB configuration. Panics upon error.
 func initDb() {
 	var err error
 	session, err = mgo.Dial(config.DBAddr)
@@ -46,38 +46,38 @@ func initDb() {
 	}
 }
 
-// User represents a user subscribed to the service
+// User represents a user subscribed to the service.
 type User struct {
-	Id        bson.ObjectId `bson:"_id"`       // Unique Identifier
-	Email     string        `bson:"email"`     // User mail. We do not need any more details
-	Score     int           `bson:"score"`     // Minimum score for an item to be sent
-	SentItems []int         `bson:"sentItems"` // Sent item ids
-	Token     string        `bson:"token"`     // User token
-	Active    bool          `bson:"active"`    // Account status
-	CreatedAt time.Time     `bson:"createdAt"` // Registration time
-	// TODO: Add queue for unprocessed items (batch notifications)
+	Id        bson.ObjectId `bson:"_id"`       // Unique Identifier.
+	Email     string        `bson:"email"`     // User mail. We do not need any more details.
+	Score     int           `bson:"score"`     // Minimum score for an item to be sent.
+	SentItems []int         `bson:"sentItems"` // Sent item ids.
+	Token     string        `bson:"token"`     // User token.
+	Active    bool          `bson:"active"`    // Account status.
+	CreatedAt time.Time     `bson:"createdAt"` // Registration time.
+	// TODO: Add queue for unprocessed items (batch notifications).
 }
 
-// newUser creates a new user, with a randomly generated token
+// newUser creates a new user, with a randomly generated token.
 func newUser(email string, score int) *User {
 	return &User{
 		Id:        bson.NewObjectId(),
 		Email:     email,
 		Score:     score,
 		Token:     newToken(),
-		Active:    false, // Email verification required
+		Active:    false, // Email verification required.
 		CreatedAt: time.Now(),
 	}
 }
 
-// Database is a convenient struct to wrap mgo collection(s)
+// Database is a convenient struct to wrap mgo collection(s).
 type Database struct {
 	mdb   *mgo.Database
 	users *mgo.Collection
 }
 
-// newDatabase created a new Database, cloning the initial mgo.Session
-// The caller *must* call close() before disposing the Database
+// newDatabase created a new Database, cloning the initial mgo.Session.
+// The caller *must* call close() before disposing the Database.
 func newDatabase() *Database {
 	s := session.Copy()
 	mdb := s.DB("hnnotifications")
@@ -87,18 +87,18 @@ func newDatabase() *Database {
 	}
 }
 
-// close handles the underlying session closure
+// close handles the underlying session closure.
 func (db *Database) close() {
 	db.mdb.Session.Close()
 }
 
-// upsertUser inserts/updates a user into the database
+// upsertUser inserts/updates a user into the database.
 func (db *Database) upsertUser(u *User) (err error) {
 	_, err = db.users.UpsertId(u.Id, u)
 	return
 }
 
-// validate checks whether the user and token pair is valid, returning the user if found
+// validate checks whether the user and token pair is valid, returning the user if found.
 func (db *Database) validate(email, token string) *User {
 	if email == "" || token == "" {
 		Logger.Printf("User validation error: %s - %s\n", email, token)
@@ -113,7 +113,7 @@ func (db *Database) validate(email, token string) *User {
 	return &u
 }
 
-// activate sets the account status to 'active'
+// activate sets the account status to 'active'.
 func (db *Database) activate(email, token string) bool {
 	u := db.validate(email, token)
 	if u == nil {
@@ -133,7 +133,7 @@ func (db *Database) activate(email, token string) bool {
 	return err == nil
 }
 
-// unsubscribe completely removes the user account from the database
+// unsubscribe completely removes the user account from the database.
 func (db *Database) unsubscribe(email, token string) bool {
 	u := db.validate(email, token)
 	if u == nil {
@@ -148,7 +148,7 @@ func (db *Database) unsubscribe(email, token string) bool {
 	return false
 }
 
-// updateScore validates the user and updates the score threshold
+// updateScore validates the user and updates the score threshold.
 func (db *Database) updateScore(email, token string, score int) bool {
 	u := db.validate(email, token)
 	if u == nil {
@@ -169,7 +169,7 @@ func (db *Database) updateScore(email, token string, score int) bool {
 	return err == nil
 }
 
-// findUsersForItem queries all users entitled to receive a given item
+// findUsersForItem queries all users entitled to receive a given item.
 func (db *Database) findUsersForItem(item, score int) []User {
 	var result []User
 	err := db.users.Find(bson.M{"score": bson.M{"$lte": score}, "sentItems": bson.M{"$ne": item}, "active": true}).All(&result)
@@ -180,7 +180,7 @@ func (db *Database) findUsersForItem(item, score int) []User {
 	return result
 }
 
-// updateSentItems adds the given item to each user's item set
+// updateSentItems adds the given item to each user's item set.
 func (db *Database) updateSentItems(emails []string, item int) error {
 	selector := bson.M{"email": bson.M{"$in": emails}}
 
@@ -194,7 +194,7 @@ func (db *Database) updateSentItems(emails []string, item int) error {
 	return err
 }
 
-// updateToken assigns the new token to the user
+// updateToken assigns the new token to the user.
 func (db *Database) updateToken(uid bson.ObjectId, token string) error {
 	update := bson.M{
 		"$set": bson.M{
@@ -204,7 +204,7 @@ func (db *Database) updateToken(uid bson.ObjectId, token string) error {
 	return db.users.UpdateId(uid, update)
 }
 
-// findUser queries a user by its email field
+// findUser queries a user by its email field.
 func (db *Database) findUser(email string) (*User, bool) {
 	var u User
 	err := db.users.Find(bson.M{"email": email}).One(&u)

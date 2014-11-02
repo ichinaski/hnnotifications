@@ -22,10 +22,10 @@ var (
 	errNotFound     = errors.New("Error: The email address you provided is not subscribed to this service!")
 )
 
-// errInternal represents an internal server error
+// errInternal represents an internal server error.
 type errInternal struct{ error }
 
-// errMessage represents a meaningful error message, that will be sent to the user
+// errMessage represents a meaningful error message, that will be sent to the user.
 type errMessage struct{ error }
 
 // Context carries http session information. It will be passed to all HTTP handlers.
@@ -54,7 +54,7 @@ func handler(f func(ctx *Context, w http.ResponseWriter, r *http.Request) error)
 			return
 		}
 
-		// Log the error, and depending on the type, display it to the user
+		// Log the error, and depending on the type, display it to the user.
 		Logger.Println(err)
 		switch err.(type) {
 		case errMessage:
@@ -71,7 +71,6 @@ func handler(f func(ctx *Context, w http.ResponseWriter, r *http.Request) error)
 // setupHandlers registers the HTTP handlers of the app.
 func setupHandlers() {
 	router := mux.NewRouter()
-	//router.HandleFunc("/", handler(IndexHandler)).  Methods("GET")
 	router.HandleFunc("/subscribe", handler(SubscribeHandler)).
 		Methods("POST")
 	router.HandleFunc("/activate", handler(ActivateHandler)).
@@ -79,8 +78,8 @@ func setupHandlers() {
 	router.HandleFunc("/unsubscribe", handler(UnsubscribeHandler)).
 		Methods("GET", "POST")
 
-	// serve settings.html, about.html static files. index.html works the same way,
-	// though it's automatically handled by the root handler
+	// serve settings.html static file. index.html works the same way,
+	// though it's automatically handled by the root file server handler.
 	router.HandleFunc("/settings", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, "./public/settings.html")
 	})
@@ -100,12 +99,12 @@ func SubscribeHandler(ctx *Context, w http.ResponseWriter, r *http.Request) erro
 		return errMessage{errInvalidScore}
 	}
 
-	q := url.Values{} // Link query parameters
+	q := url.Values{} // Link query parameters.
 	u, ok := ctx.db.findUser(email)
 	if ok {
-		// The user already exists. The score will be added to the query
+		// The user already exists. The score will be added to the query.
 		q.Set("score", strconv.Itoa(score))
-		u.Token = newToken() // reset user's token
+		u.Token = newToken() // reset user token.
 		if err := ctx.db.updateToken(u.Id, u.Token); err != nil {
 			return errInternal{err}
 		}
@@ -130,7 +129,7 @@ func ActivateHandler(ctx *Context, w http.ResponseWriter, r *http.Request) error
 	score, ok := parseScore(r)
 	msg := subscribedMsg
 	if ok {
-		// We need to update the score too
+		// We need to update the score too.
 		ok = ctx.db.updateScore(email, token, score)
 		msg = scoreUpdatedMsg
 	} else {
@@ -153,7 +152,7 @@ func UnsubscribeHandler(ctx *Context, w http.ResponseWriter, r *http.Request) er
 			return errMessage{errNotFound}
 		}
 
-		u.Token = newToken() // reset user's token
+		u.Token = newToken() // reset user token.
 		if err := ctx.db.updateToken(u.Id, u.Token); err != nil {
 			return errInternal{err}
 		}
