@@ -12,11 +12,12 @@ const (
 	commentsUrl = "https://news.ycombinator.com/item?id=%d"
 )
 
+// auth set up SMTP account credentials
 func auth() smtp.Auth {
-	// Set up authentication information.
 	return smtp.PlainAuth("", config.SMTP.User, config.SMTP.Password, config.SMTP.Host)
 }
 
+// loadEmail applies the given data to a particular email template, returning the output bytes
 func loadEmail(templ string, data interface{}) ([]byte, error) {
 	var doc bytes.Buffer
 	err := useTemplate(templ, data, &doc)
@@ -59,6 +60,7 @@ func sendUnsubscription(to, link string) error {
 	return e.Send(config.SMTP.Addr, auth())
 }
 
+// sendItem delivers a notification email for the given item
 func sendItem(id int, title, url string, bcc []string) error {
 	data := map[string]string{
 		"title":      title,
@@ -79,6 +81,7 @@ func sendItem(id int, title, url string, bcc []string) error {
 	return e.Send(config.SMTP.Addr, auth())
 }
 
+// validateAddress is a simple email validation function
 func validateAddress(email string) bool {
 	_, err := mail.ParseAddress(email)
 	return err == nil

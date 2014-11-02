@@ -11,6 +11,7 @@ var (
 	templates = make(map[string]*template.Template)
 )
 
+// init handles template initialization.
 func init() {
 	templates["info"] = template.Must(template.ParseFiles("templates/info.html"))
 	templates["item_email"] = template.Must(template.ParseFiles("templates/item_email.html"))
@@ -18,6 +19,7 @@ func init() {
 	templates["unsubscribe_email"] = template.Must(template.ParseFiles("templates/unsubscribe_email.html"))
 }
 
+// useTemplate applies the given data to the template, and writes the output to w
 func useTemplate(name string, data interface{}, w io.Writer) error {
 	t, ok := templates[name]
 	if !ok {

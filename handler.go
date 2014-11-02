@@ -28,16 +28,20 @@ type errInternal struct{ error }
 // errMessage represents a meaningful error message, that will be sent to the user
 type errMessage struct{ error }
 
+// Context carries http session information. It will be passed to all HTTP handlers.
+// TODO: Include user information, simplifying authentication management.
 type Context struct {
 	db *Database
 }
 
+// newContext creates a new Context, ready to be passed to a HTTP handler.
 func newContext() *Context {
 	return &Context{
 		db: newDatabase(),
 	}
 }
 
+// handler wraps a custom handler function returning a standard HandlerFunc closure.
 func handler(f func(ctx *Context, w http.ResponseWriter, r *http.Request) error) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		Logger.Printf("%s %s %s\n", r.Method, r.URL.Path, r.URL.RawQuery)
@@ -64,7 +68,7 @@ func handler(f func(ctx *Context, w http.ResponseWriter, r *http.Request) error)
 	}
 }
 
-// setupHandlers registers the http handlers of the app
+// setupHandlers registers the HTTP handlers of the app.
 func setupHandlers() {
 	router := mux.NewRouter()
 	//router.HandleFunc("/", handler(IndexHandler)).  Methods("GET")
@@ -85,7 +89,7 @@ func setupHandlers() {
 	http.Handle("/", router)
 }
 
-// SubscribeHandler will handle new registrations and score update requests
+// SubscribeHandler is the HTTP handler for managing new subscriptions; It handles '/subscribe'.
 func SubscribeHandler(ctx *Context, w http.ResponseWriter, r *http.Request) error {
 	email, ok := parseEmail(r)
 	if !ok {
@@ -120,6 +124,7 @@ func SubscribeHandler(ctx *Context, w http.ResponseWriter, r *http.Request) erro
 	return writeMessage(linkSentMsg, w)
 }
 
+// ActivateHandler is the HTTP handler for managing account activations; It handles '/activate'.
 func ActivateHandler(ctx *Context, w http.ResponseWriter, r *http.Request) error {
 	email, token := r.FormValue("email"), r.FormValue("token")
 	score, ok := parseScore(r)
@@ -138,8 +143,7 @@ func ActivateHandler(ctx *Context, w http.ResponseWriter, r *http.Request) error
 	return errMessage{errInvalidLink}
 }
 
-// UnsubscribeHandler will handle unsubscription requests through a POST method,
-// and will unsubscribe a user through a GET method and the user token
+// ActivateHandler is the HTTP handler for managing account unsubscriptions; It handles '/unsubscribe'.
 func UnsubscribeHandler(ctx *Context, w http.ResponseWriter, r *http.Request) error {
 	switch r.Method {
 	case "POST":
@@ -171,16 +175,18 @@ func UnsubscribeHandler(ctx *Context, w http.ResponseWriter, r *http.Request) er
 	return nil
 }
 
-// writeMessage renders a message in the default 'info' template
+// writeMessage renders a message in the default 'info' template.
 func writeMessage(msg string, w http.ResponseWriter) error {
 	return useTemplate("info", msg, w)
 }
 
+// parseEmail gets the email attribute from the request.
 func parseEmail(r *http.Request) (string, bool) {
 	email := r.FormValue("email")
 	return email, validateAddress(email)
 }
 
+// parseScore gets the score attribute from the request.
 func parseScore(r *http.Request) (int, bool) {
 	score, err := strconv.Atoi(r.FormValue("score"))
 	return score, err == nil

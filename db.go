@@ -7,7 +7,7 @@ import (
 )
 
 var (
-	session *mgo.Session // Though global, this session is meant to be copied for each database object creation
+	session *mgo.Session // Though global, this session is meant to be copied for each database instance
 )
 
 // initDb sets up the DB configuration. Panics upon error
@@ -20,13 +20,11 @@ func initDb() {
 	Logger.Println("Connected to MongoDB")
 
 	session.EnsureSafe(&mgo.Safe{})
-	// mgo.SetLogger(Logger)
-	// mgo.SetDebug(true)
 
 	db := newDatabase()
 	defer db.close()
 
-	//create an index for the email field on the users collection
+	// ensure indexes
 	if err := db.users.EnsureIndex(mgo.Index{
 		Key:    []string{"email"},
 		Unique: true,
@@ -34,9 +32,9 @@ func initDb() {
 		panic(err)
 	}
 
-	// create score index
 	if err := db.users.EnsureIndex(mgo.Index{
-		Key: []string{"score"},
+		Key:    []string{"email", "token"},
+		Unique: true,
 	}); err != nil {
 		panic(err)
 	}
@@ -115,6 +113,7 @@ func (db *Database) validate(email, token string) *User {
 	return &u
 }
 
+// activate sets the account status to 'active'
 func (db *Database) activate(email, token string) bool {
 	u := db.validate(email, token)
 	if u == nil {
@@ -134,6 +133,7 @@ func (db *Database) activate(email, token string) bool {
 	return err == nil
 }
 
+// unsubscribe completely removes the user account from the database
 func (db *Database) unsubscribe(email, token string) bool {
 	u := db.validate(email, token)
 	if u == nil {
@@ -169,6 +169,7 @@ func (db *Database) updateScore(email, token string, score int) bool {
 	return err == nil
 }
 
+// findUsersForItem queries all users entitled to receive a given item
 func (db *Database) findUsersForItem(item, score int) []User {
 	var result []User
 	err := db.users.Find(bson.M{"score": bson.M{"$lte": score}, "sentItems": bson.M{"$ne": item}, "active": true}).All(&result)
@@ -179,6 +180,7 @@ func (db *Database) findUsersForItem(item, score int) []User {
 	return result
 }
 
+// updateSentItems adds the given item to each user's item set
 func (db *Database) updateSentItems(emails []string, item int) error {
 	selector := bson.M{"email": bson.M{"$in": emails}}
 
@@ -192,6 +194,7 @@ func (db *Database) updateSentItems(emails []string, item int) error {
 	return err
 }
 
+// updateToken assigns the new token to the user
 func (db *Database) updateToken(uid bson.ObjectId, token string) error {
 	update := bson.M{
 		"$set": bson.M{
@@ -201,6 +204,7 @@ func (db *Database) updateToken(uid bson.ObjectId, token string) error {
 	return db.users.UpdateId(uid, update)
 }
 
+// findUser queries a user by its email field
 func (db *Database) findUser(email string) (*User, bool) {
 	var u User
 	err := db.users.Find(bson.M{"email": email}).One(&u)
