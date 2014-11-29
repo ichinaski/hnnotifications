@@ -20,7 +20,7 @@ var (
 	errInvalidScore = errors.New("Error: The score field must be a number!")
 	errInvalidLink  = errors.New("Error: The link is not valid.")
 	errNotFound     = errors.New("Error: The email address you provided is not subscribed to this service!")
-	errMinScore     = errors.New("Error: The must select a minimum score of 200 points!")
+	errMinScore     = errors.New("Error: You must select a minimum score of 200 points!")
 )
 
 var (
