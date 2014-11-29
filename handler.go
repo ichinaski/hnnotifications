@@ -20,6 +20,11 @@ var (
 	errInvalidScore = errors.New("Error: The score field must be a number!")
 	errInvalidLink  = errors.New("Error: The link is not valid.")
 	errNotFound     = errors.New("Error: The email address you provided is not subscribed to this service!")
+	errMinScore     = errors.New("Error: The must select a minimum score of 200 points!")
+)
+
+var (
+	minScore = 200
 )
 
 // errInternal represents an internal server error.
@@ -97,6 +102,8 @@ func SubscribeHandler(ctx *Context, w http.ResponseWriter, r *http.Request) erro
 	score, ok := parseScore(r)
 	if !ok {
 		return errMessage{errInvalidScore}
+	} else if score < minScore {
+		return errMessage{errMinScore}
 	}
 
 	q := url.Values{} // Link query parameters.
