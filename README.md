@@ -1,4 +1,4 @@
-HN Notifications
+HN Notifications [![Build Status](https://travis-ci.org/ichinaski/hnnotifications.svg?branch=master)](https://travis-ci.org/ichinaski/hnnotifications)
 ============
 
 Get an email as soon as a [Hacker News](https://news.ycombinator.com/) story reaches your custom score threshold.
