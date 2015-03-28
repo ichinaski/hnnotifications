@@ -2,25 +2,29 @@ package main
 
 import (
 	"errors"
-	"github.com/gorilla/mux"
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
+	"unicode"
+
+	"github.com/gorilla/mux"
 )
 
 const (
 	linkSentMsg     = "An account verification email has been sent."
 	subscribedMsg   = "Your account is now active!"
-	scoreUpdatedMsg = "Your score threshold has been successfully updated!"
+	scoreUpdatedMsg = "Your settings have been successfully updated!"
 	unsubscribedMsg = "You have been successfully unsubscribed."
 )
 
 var (
-	errInvalidEmail = errors.New("Error: The email address is not valid!")
-	errInvalidScore = errors.New("Error: The score field must be a number!")
-	errInvalidLink  = errors.New("Error: The link is not valid.")
-	errNotFound     = errors.New("Error: The email address you provided is not subscribed to this service!")
-	errMinScore     = errors.New("Error: You must select a minimum score of 200 points!")
+	errInvalidEmail    = errors.New("Error: The email address is not valid!")
+	errInvalidScore    = errors.New("Error: The score field must be a number!")
+	errInvalidLink     = errors.New("Error: The link is not valid.")
+	errInvalidKeywords = errors.New("Error: Invalid keywords. Keywords must be space-separated, alphanumeric strings")
+	errNotFound        = errors.New("Error: The email address you provided is not subscribed to this service!")
+	errMinScore        = errors.New("Error: You must select a minimum score of 200 points!")
 )
 
 var (
@@ -106,17 +110,26 @@ func SubscribeHandler(ctx *Context, w http.ResponseWriter, r *http.Request) erro
 		return errMessage{errMinScore}
 	}
 
+	keywords, ok := parseKeywords(r)
+	if !ok {
+		return errMessage{errInvalidKeywords}
+	}
+	if len(keywords) != 0 {
+		Logger.Printf("Settings -> Score:%d, Keywords:%v\n", score, keywords)
+	}
+
 	q := url.Values{} // Link query parameters.
 	u, ok := ctx.db.findUser(email)
 	if ok {
-		// The user already exists. The score will be added to the query.
+		// The user already exists. Settings will be added to the query.
 		q.Set("score", strconv.Itoa(score))
-		u.Token = newToken() // reset user token.
+		q.Set("keywords", strings.Join(keywords, " ")) // FIXME: Should we just forward whatever we got in the initial request?
+		u.Token = newToken()                           // reset user token.
 		if err := ctx.db.updateToken(u.Id, u.Token); err != nil {
 			return errInternal{err}
 		}
 	} else {
-		u = newUser(email, score)
+		u = newUser(email, score, keywords)
 		if err := ctx.db.upsertUser(u); err != nil {
 			return errInternal{err}
 		}
@@ -131,20 +144,23 @@ func SubscribeHandler(ctx *Context, w http.ResponseWriter, r *http.Request) erro
 }
 
 // ActivateHandler is the HTTP handler for managing account activations; It handles '/activate'.
+// On registered users, it also handles setting updates.
 func ActivateHandler(ctx *Context, w http.ResponseWriter, r *http.Request) error {
 	email, token := r.FormValue("email"), r.FormValue("token")
-	score, ok := parseScore(r)
-	msg := subscribedMsg
-	if ok {
-		// We need to update the score too.
-		ok = ctx.db.updateScore(email, token, score)
-		msg = scoreUpdatedMsg
-	} else {
-		ok = ctx.db.activate(email, token)
+
+	// Attempt to read score and keywords preferences, in case of setting updates.
+	score, sOK := parseScore(r)
+	keywords, kOK := parseKeywords(r)
+	if sOK && kOK {
+		// Update settings
+		if ctx.db.updateUser(email, token, score, keywords) {
+			return writeMessage(scoreUpdatedMsg, w)
+		}
+		return errMessage{errInvalidLink}
 	}
 
-	if ok {
-		return writeMessage(msg, w)
+	if ctx.db.activate(email, token) {
+		return writeMessage(subscribedMsg, w)
 	}
 	return errMessage{errInvalidLink}
 }
@@ -196,4 +212,15 @@ func parseEmail(r *http.Request) (string, bool) {
 func parseScore(r *http.Request) (int, bool) {
 	score, err := strconv.Atoi(r.FormValue("score"))
 	return score, err == nil
+}
+
+// parseKeywords reads the keywords attribute from the request.
+func parseKeywords(r *http.Request) ([]string, bool) {
+	text := r.FormValue("keywords")
+	for _, r := range text {
+		if !unicode.IsLetter(r) && !unicode.IsNumber(r) && !unicode.IsSpace(r) {
+			return nil, false
+		}
+	}
+	return Keywords(text), true
 }

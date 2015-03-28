@@ -98,7 +98,7 @@ func run() {
 	}
 
 	for item := range merge(cs...) {
-		if users := db.findUsersForItem(item.Id, item.Score); len(users) > 0 {
+		if users := db.findUsersForItem(item); len(users) > 0 {
 			emails := make([]string, len(users)) // Create a slice with all the recipients for this item.
 			for i, u := range users {
 				emails[i] = u.Email

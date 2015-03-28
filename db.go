@@ -1,9 +1,10 @@
 package main
 
 import (
+	"time"
+
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
-	"time"
 )
 
 var (
@@ -51,6 +52,7 @@ type User struct {
 	Id        bson.ObjectId `bson:"_id"`       // Unique Identifier.
 	Email     string        `bson:"email"`     // User mail. We do not need any more details.
 	Score     int           `bson:"score"`     // Minimum score for an item to be sent.
+	Keywords  []string      `bson:"keywords"`  // Keywords 'subscribed' to
 	SentItems []int         `bson:"sentItems"` // Sent item ids.
 	Token     string        `bson:"token"`     // User token.
 	Active    bool          `bson:"active"`    // Account status.
@@ -59,11 +61,12 @@ type User struct {
 }
 
 // newUser creates a new user, with a randomly generated token.
-func newUser(email string, score int) *User {
+func newUser(email string, score int, keywords []string) *User {
 	return &User{
 		Id:        bson.NewObjectId(),
 		Email:     email,
 		Score:     score,
+		Keywords:  keywords,
 		Token:     newToken(),
 		Active:    false, // Email verification required.
 		CreatedAt: time.Now(),
@@ -149,7 +152,7 @@ func (db *Database) unsubscribe(email, token string) bool {
 }
 
 // updateScore validates the user and updates the score threshold.
-func (db *Database) updateScore(email, token string, score int) bool {
+func (db *Database) updateUser(email, token string, score int, keywords []string) bool {
 	u := db.validate(email, token)
 	if u == nil {
 		return false
@@ -157,22 +160,34 @@ func (db *Database) updateScore(email, token string, score int) bool {
 
 	update := bson.M{
 		"$set": bson.M{
-			"score":  score,
-			"token":  nil,
-			"active": true,
+			"score":    score,
+			"keywords": keywords,
+			"token":    nil,
+			"active":   true,
 		},
 	}
 	err := db.users.UpdateId(u.Id, update)
 	if err != nil {
-		Logger.Println("Error: updateScore() - ", err)
+		Logger.Println("Error: updateUser() - ", err)
 	}
 	return err == nil
 }
 
 // findUsersForItem queries all users entitled to receive a given item.
-func (db *Database) findUsersForItem(item, score int) []User {
+func (db *Database) findUsersForItem(item Item) []User {
+	query := bson.M{
+		"score":     bson.M{"$lte": item.Score},
+		"sentItems": bson.M{"$ne": item.Id},
+		"active":    true,
+		"$or": []bson.M{
+			bson.M{"keywords": bson.M{"$exists": false}},
+			bson.M{"keywords": bson.M{"$size": 0}},
+			bson.M{"keywords": bson.M{"$in": Keywords(item.Title)}},
+		},
+	}
+
 	var result []User
-	err := db.users.Find(bson.M{"score": bson.M{"$lte": score}, "sentItems": bson.M{"$ne": item}, "active": true}).All(&result)
+	err := db.users.Find(query).All(&result)
 	if err != nil {
 		Logger.Println(err)
 	}
