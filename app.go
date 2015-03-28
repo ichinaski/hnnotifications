@@ -83,7 +83,7 @@ func run() {
 			item, err := getItem(client, id)
 			if err != nil {
 				Logger.Println(err)
-			} else {
+			} else if id == item.Id { // Guard against null responses, coerced into an empty Item
 				out <- item
 			}
 			close(out)
@@ -160,7 +160,7 @@ func getItem(client *http.Client, id int) (item Item, err error) {
 	defer resp.Body.Close()
 
 	err = json.NewDecoder(resp.Body).Decode(&item)
-	return item, nil
+	return item, err
 }
 
 // merge converts a list of channels to a single channel.
