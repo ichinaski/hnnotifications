@@ -14,7 +14,8 @@ const (
 	topStoriesUrl = "https://hacker-news.firebaseio.com/v0/topstories.json"
 	itemUrl       = "https://hacker-news.firebaseio.com/v0/item/%d.json"
 
-	runInterval = 15 * time.Minute // Interval at which we fetch the items
+	runInterval   = 15 * time.Minute // Interval at which we fetch the items
+	maxTopStories = 150              // Maximum top stories fetched per cycle
 )
 
 var (
@@ -39,7 +40,7 @@ func main() {
 	}()
 
 	Logger.Printf("Listening on %s...\n", config.Addr)
-	http.ListenAndServe(config.Addr, nil)
+	Logger.Fatal(http.ListenAndServe(config.Addr, nil))
 }
 
 // Item represents a HN story.
@@ -62,10 +63,16 @@ func run() {
 	db := newDatabase()
 	defer db.close()
 
-	ids, err := getTopStories()
+	// Single http.Client concurrently used by all goroutines
+	client := &http.Client{}
+
+	ids, err := getTopStories(client)
 	if err != nil {
 		Logger.Println(err)
 		return // Just wait till the next cycle.
+	}
+	if len(ids) > maxTopStories {
+		ids = ids[:maxTopStories]
 	}
 
 	// fetcher runs a goroutine to fetch the item. Once completed, the result
@@ -73,10 +80,10 @@ func run() {
 	fetchItem := func(id int) chan Item {
 		out := make(chan Item)
 		go func() {
-			item, err := getItem(id)
+			item, err := getItem(client, id)
 			if err != nil {
 				Logger.Println(err)
-			} else {
+			} else if id == item.Id { // Guard against null responses, coerced into an empty Item
 				out <- item
 			}
 			close(out)
@@ -91,7 +98,7 @@ func run() {
 	}
 
 	for item := range merge(cs...) {
-		if users := db.findUsersForItem(item.Id, item.Score); len(users) > 0 {
+		if users := db.findUsersForItem(item); len(users) > 0 {
 			emails := make([]string, len(users)) // Create a slice with all the recipients for this item.
 			for i, u := range users {
 				emails[i] = u.Email
@@ -115,8 +122,7 @@ func run() {
 }
 
 // getTopStories reads the top stories IDs from the API.
-func getTopStories() ([]int, error) {
-	client := &http.Client{}
+func getTopStories(client *http.Client) ([]int, error) {
 	req, err := http.NewRequest("GET", topStoriesUrl, nil)
 	if err != nil {
 		return nil, err
@@ -138,11 +144,9 @@ func getTopStories() ([]int, error) {
 }
 
 // getItem reads the HN story item from the API.
-func getItem(id int) (item Item, err error) {
-	url := fmt.Sprintf(itemUrl, id)
-	client := &http.Client{}
+func getItem(client *http.Client, id int) (item Item, err error) {
 	var req *http.Request
-	req, err = http.NewRequest("GET", url, nil)
+	req, err = http.NewRequest("GET", fmt.Sprintf(itemUrl, id), nil)
 	if err != nil {
 		return
 	}
@@ -156,7 +160,7 @@ func getItem(id int) (item Item, err error) {
 	defer resp.Body.Close()
 
 	err = json.NewDecoder(resp.Body).Decode(&item)
-	return item, nil
+	return item, err
 }
 
 // merge converts a list of channels to a single channel.

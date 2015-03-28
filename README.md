@@ -1,7 +1,7 @@
 HN Notifications [![Build Status](https://travis-ci.org/ichinaski/hnnotifications.svg?branch=master)](https://travis-ci.org/ichinaski/hnnotifications)
 ============
 
-Get an email as soon as a [Hacker News](https://news.ycombinator.com/) story reaches your custom score threshold.
+Get an email as soon as a [Hacker News](https://news.ycombinator.com/) story matches your custom criteria.
 
 [HN Notifications](http://hnnotifications.com) is a simple web service to fetch Hacker News items, and deliver email notification to its subscribers.
 This small project has mainly been used to play around with Go and MongoDB, and although the current status is fully functional, there are a few things to polish up. So please, feel free to contribute!

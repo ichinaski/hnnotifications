@@ -13,7 +13,7 @@
                 </div>
             </div>
             <div class="content">
-                <h3>Get an email as soon as a Hacker News story reaches your custom score threshold.</h3>
+                <h3>Get an email as soon as a Hacker News story matches your custom criteria.</h3>
                 <form action="/subscribe" method="POST">
                     <div>
                         <label for="email">email</label>
@@ -22,6 +22,10 @@
                     <div>
                         <label for="score">score</label>
                         <input type="number" name="score" id="score" required="true" step="100" min="200" placeholder="score threshold">
+                    </div>
+                    <div>
+                        <label for="keywords">keywords (space-separated)</label>
+                        <input type="text" name="keywords" id="keywords" placeholder="Optional Keywords">
                     </div>
                     <button type="submit">subscribe</button>
                 </form>
