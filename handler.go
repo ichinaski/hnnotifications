@@ -16,6 +16,8 @@ const (
 	subscribedMsg   = "Your account is now active!"
 	scoreUpdatedMsg = "Your settings have been successfully updated!"
 	unsubscribedMsg = "You have been successfully unsubscribed."
+
+	minScoreNoKeywords = 200
 )
 
 var (
@@ -24,11 +26,7 @@ var (
 	errInvalidLink     = errors.New("Error: The link is not valid.")
 	errInvalidKeywords = errors.New("Error: Invalid keywords. Keywords must be space-separated, alphanumeric strings")
 	errNotFound        = errors.New("Error: The email address you provided is not subscribed to this service!")
-	errMinScore        = errors.New("Error: You must select a minimum score of 200 points!")
-)
-
-var (
-	minScore = 200
+	errMinScore        = errors.New("Error: You must either add some keywords or select a minimum score of 200 points!")
 )
 
 // errInternal represents an internal server error.
@@ -103,20 +101,17 @@ func SubscribeHandler(ctx *Context, w http.ResponseWriter, r *http.Request) erro
 	if !ok {
 		return errMessage{errInvalidEmail}
 	}
-	score, ok := parseScore(r)
-	if !ok {
-		return errMessage{errInvalidScore}
-	} else if score < minScore {
-		return errMessage{errMinScore}
-	}
-
 	keywords, ok := parseKeywords(r)
 	if !ok {
 		return errMessage{errInvalidKeywords}
 	}
-	if len(keywords) != 0 {
-		Logger.Printf("Settings -> Score:%d, Keywords:%v\n", score, keywords)
+	score, ok := parseScore(r)
+	if !ok {
+		return errMessage{errInvalidScore}
+	} else if len(keywords) == 0 && score < minScoreNoKeywords {
+		return errMessage{errMinScore}
 	}
+	Logger.Printf("Settings -> Score:%d, Keywords:%v\n", score, keywords)
 
 	q := url.Values{} // Link query parameters.
 	u, ok := ctx.db.findUser(email)
