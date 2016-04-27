@@ -1,6 +1,8 @@
 HN Notifications [![Build Status](https://travis-ci.org/ichinaski/hnnotifications.svg?branch=master)](https://travis-ci.org/ichinaski/hnnotifications)
 ============
 
+**This project is temporarily discontinued. I need to find a suitable transactional email provider to substitute Mandrill (they decided to stub developers in the back) and possibly port the app to Google Cloud infraestructure**
+
 Get an email as soon as a [Hacker News](https://news.ycombinator.com/) story matches your custom criteria.
 
 [HN Notifications](http://hnnotifications.com) is a simple web service to fetch Hacker News items, and deliver email notification to its subscribers.
