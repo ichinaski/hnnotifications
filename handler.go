@@ -70,7 +70,7 @@ func handler(f func(ctx *Context, w http.ResponseWriter, r *http.Request) error)
 		case errInternal:
 		default:
 			w.WriteHeader(http.StatusInternalServerError)
-			writeMessage("Oops! An error ocurred.", w)
+			writeMessage("Oops! An error occurred.", w)
 		}
 	}
 }
